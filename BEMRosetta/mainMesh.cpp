@@ -832,7 +832,7 @@ void MainBody::LoadSelTab(BEM &bem) {
 void MainBody::OnOpt() {
 	menuOpen.file.ClearTypes(); 
 
-	String meshFiles = Body::GetMeshExt();	//".gdf .dat .stl .pnl .msh .mesh .hst .grd .obj .nc";
+	String meshFiles = Body::GetMeshExt(false);	//".gdf .dat .stl .pnl .msh .mesh .hst .grd .obj .nc";
 	
 	String meshFilesAst = clone(meshFiles);
 	meshFiles.Replace("*.", ".");

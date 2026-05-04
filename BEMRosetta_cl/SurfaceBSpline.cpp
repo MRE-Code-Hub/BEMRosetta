@@ -571,6 +571,27 @@ void SurfaceBSpline::GetLid() {
 	}	
 }
 
+void SurfaceBSpline::GetHullLid() {
+	for (int i = patches.size()-1; i >= 0; --i) {
+		BSplinePatch &patch = patches[i];
+		bool ishull = false;
+		for (Point3D &p : patch.controlPoints) {
+			if (p.z < -EPS_LEN) {		// If just a point is underwater, it is hull
+				ishull = true;
+				break;
+			}
+		}
+		bool islid = true;
+		for (Point3D &p : patch.controlPoints) {
+			if (p.z > EPS_LEN || p.z < -EPS_LEN) {
+				islid = false;
+				break;
+			}
+		}
+		if (!ishull && !islid)	
+			patches.Remove(i);
+	}	
+}
 	
 void SurfaceBSpline::RoundClosest(double grid, double eps) {
 	for (BSplinePatch &patch : patches) {
@@ -626,7 +647,7 @@ bool SurfaceBSpline::SaveGdf(const String& fileName, double g, bool symX, bool s
 	if (!iscsf)
 		out << F("%16<s ULEN GRAV\n", F("%d %12f", 1, g));
 	else
-		out << "ILOWHICSF=1\n";
+		out << "1\t\tILOWHICSF\n";
 	out << F("%16<s ISX ISY\n", F("%d %d", (symX ? 1 : 0), (symY ? 1 : 0)));
 	out << F("%16<s NPATCH IGDEF\n", F("%d 1", size()));
 	

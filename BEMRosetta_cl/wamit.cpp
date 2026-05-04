@@ -3169,16 +3169,20 @@ void Wamit::SaveCase(String folder, int numThreads, bool x0z, bool y0z, UVector<
 			for (int ib = 0; ib < dt.Nb; ++ib) {
 				rpart = max(abs(cs[ib].dt.mesh.env.maxX), abs(cs[ib].dt.mesh.env.maxY), abs(cs[ib].dt.mesh.env.minX), abs(cs[ib].dt.mesh.env.minY));
 				iscs2 = !cs[ib].dt.spline.IsEmpty();
-				if (iscs2)
-					cs[ib].dt.under.Translate(-cs[ib].dt.c0.x, -cs[ib].dt.c0.y, -cs[ib].dt.c0.z);	
-				else {
-					cs[ib].dt.spline.CutZ(false);
-					cs[ib].dt.spline.Translate(-cs[ib].dt.c0);	
+				if (!iscs2) {
+					Surface lid;
+					lid.GetDryPanels(cs[ib].dt.mesh, true, Null, Null);
+					cs[ib].dt.under.Append(lid);
+					cs[ib].dt.under.Translate(-dt.msh[ib].dt.c0.x, -dt.msh[ib].dt.c0.y, -dt.msh[ib].dt.c0.z);	
+					cs[ib].dt.mesh = clone(cs[ib].dt.under);
+				} else {
+					cs[ib].dt.spline.GetHullLid();
+					cs[ib].dt.spline.Translate(-dt.msh[ib].dt.c0);	
 				}
 				names << AFX(folder, F("Body_%d.csf", ib+1));
 			}
 			int nNodes, nPanels;
-			Body::SaveAs(cs, names, iscs2 ? Body::WAMIT_CSF2 : Body::WAMIT_CSF, Body::UNDERWATER, Bem().rho, Bem().g, y0z, x0z, nNodes, nPanels,
+			Body::SaveAs(cs, names, iscs2 ? Body::WAMIT_CSF2 : Body::WAMIT_CSF, Body::ALL, Bem().rho, Bem().g, y0z, x0z, nNodes, nPanels,
 				dt.w, dt.head, false, false, false, false, dt.h, Null);
 		}
 	} else

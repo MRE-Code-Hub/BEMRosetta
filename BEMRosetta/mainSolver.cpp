@@ -38,7 +38,7 @@ void InitGrid(GridCtrl &grid, EditDouble edit[]) {
 }
 
 MainSolverBody::MainSolverBody() {
-	const String meshFiles = ".gdf .dat .stl .pnl .msh .grd .hst .mesh";
+	String meshFiles = Body::GetMeshExt(true);
 	String meshFilesAst = clone(meshFiles);
 	meshFilesAst.Replace(".", "*.");
 	

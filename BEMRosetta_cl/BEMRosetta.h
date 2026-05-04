@@ -70,7 +70,7 @@ public:
 	
 	enum MESH_TYPE {ALL, UNDERWATER};
 	
-	static String GetMeshExt();
+	static String GetMeshExt(bool testCanSave);
 	
 	Body() {}
 	void Copy(const Body &msh);

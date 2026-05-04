@@ -37,11 +37,11 @@ const UVector<Body::MeshInfo> Body::meshInfo = {
 int Body::idCount = 0;
 
 
-String Body::GetMeshExt() {
+String Body::GetMeshExt(bool testCanSave) {
 	String ret;
 	
 	for (int i = 0; i < MESH_FMT::NUMMESH; ++i) {
-		if (ret.FindAfter(meshInfo[i].ext) < 0) {
+		if ((!testCanSave || meshInfo[i].canSave) && ret.FindAfter(meshInfo[i].ext) < 0) {
 			if (!ret.IsEmpty())
 				ret << " ";
 			ret << meshInfo[i].ext;		

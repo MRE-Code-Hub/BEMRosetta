@@ -124,6 +124,7 @@ public:
 	void CutZ(bool leavePositive = true);
 	void GetHull();
 	void GetLid();
+	void GetHullLid();
 	
 	String Heal(double grid, double eps);
 	
