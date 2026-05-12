@@ -489,7 +489,9 @@ void Nemoh::SaveCase_Capy(String folder, int numThreads, bool withPotentials, bo
 			"from capytaine.io.xarray import problems_from_dataset\n"
 			"from capytaine.bem.airy_waves import airy_waves_pressure\n"
 			"from capytaine.post_pro.rao import rao\n"
-			"import xarray as xr\n\n"
+			"from packaging.version import Version\n"
+			"import xarray as xr\n"
+			"\n"
 			"print(f'Capytaine version is: {cpt.__version__}')\n\n";
 
 	String listBodies;
@@ -678,12 +680,14 @@ void Nemoh::SaveCase_Capy(String folder, int numThreads, bool withPotentials, bo
 			"ds['center_of_buoyancy'] = (['rigid_body_component', 'point_coordinates'], [body.center_of_buoyancy for body in list_of_bodies])\n"
 			"ds['center_of_mass'] = (['rigid_body_component', 'point_coordinates'], [body.center_of_mass for body in list_of_bodies])\n"
 			"\n"
-			"# Export to NetCDF file. This may crash if Capytaine version is lower than 2.3\n"
-			"cpt.export_dataset('" << "capytaine" << ".nc', ds, format=\"netcdf\")\n";
-			//"from capytaine.io.xarray import separate_complex_values\n"
-			//"separate_complex_values(ds).to_netcdf('" << name << ".nc',\n"
-			//"                                          encoding={'radiating_dof': {'dtype': 'U'},\n"
-			//"                                                    'influenced_dof': {'dtype': 'U'}})\n";	
+			"# Export to NetCDF file\n"
+			"if Version(cpt.__version__) >= Version('2.3'):\n"
+			"    cpt.export_dataset('" << "capytaine" << ".nc', ds, format=\"netcdf\")\n"
+			"else:\n"
+			"    from capytaine.io.xarray import separate_complex_values\n"
+			"    separate_complex_values(ds).to_netcdf('" << name << ".nc',\n"
+			"                                          encoding={'radiating_dof':  {'dtype': 'U'},\n"
+			"                                                    'influenced_dof': {'dtype': 'U'}})\n";	
 	
 	spy.Replace("'", "\"");
 	spy.Replace("\\", "\\\\");

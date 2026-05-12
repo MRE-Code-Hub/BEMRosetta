@@ -931,6 +931,7 @@ public:
 	void OnPCA();
 	void OnUpdateMass();
 	void OnHealing(bool basic);
+	void OnOpenings();
 	void OnOrientSurface();
 	void OnImage(int axis);
 	void OnOpt();

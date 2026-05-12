@@ -524,7 +524,7 @@ void Hydro::LoadCase(String fileName, Function <bool(String, int)> Status) {
 	else if (ext == ".in")
 		ret = static_cast<Hams&>(*this).Load(fileName, true, Status); 
 	else if (F(".dat.lis.ah1.qtf.mqt").Find(ext) >= 0)
-		ret = static_cast<Aqwa&>(*this).Load(fileName, Status);
+		ret = static_cast<Aqwa&>(*this).Load(fileName, Status, true);
 	else if (ext == ".nc") {
 		UArray<Hydro> hydros;
 		int num;
@@ -830,7 +830,7 @@ UVector<String> Hydro::Check(BEM_FMT type, bool irregular, bool autoIrregular, i
 		if (!IsNull(dt.msh[ib].dt.c0) && IsNull(dt.msh[ib].dt.cg) && Distance(dt.msh[ib].dt.c0, dt.msh[ib].dt.c0) < 0.01) {
 			for (int r = 0; r < 6; ++r) {
 				for (int c = 0; c < 6; ++c) {
-					if (r != c && abs(dt.msh[ib].dt.M(r, c) > 0.01)) {
+					if (r != c && abs(dt.msh[ib].dt.M(r, c)) > 0.01) {
 						ret << F(t_("Inertia matrix of body #%d has a zero outside the diagonal, and cg == cb"), ib+1);
 						break;
 					}

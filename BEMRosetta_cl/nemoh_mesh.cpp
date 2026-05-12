@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright 2020 - 2022, the BEMRosetta author and contributors
+// Copyright 2020 - 2026, the BEMRosetta author and contributors
 #include "BEMRosetta.h"
 #include "BEMRosetta_int.h"
 
@@ -193,6 +193,37 @@ void NemohBody::SaveDat0(String fileName, const Surface &surf, bool x0z, int &np
 		npanels++;
 	}
 	out << F("  %8d   %8d   %8d   %8d\n", 0, 0, 0, 0);
+}
+
+void NemohBody::SaveDatFS(String fileName, Surface &surf, bool x0z) {
+	FileOut out(fileName);
+	if (!out.IsOpen())
+		throw Exc(F(t_("Impossible to open '%s'\n"), fileName));	
+	
+	const UVector<Panel> &panels = surf.panels;
+	const UVector<Point3D> &nodes = surf.nodes;
+	UVector<UVector<int>> b = surf.GetAllBoundaries();
+	if (b.IsEmpty())
+		throw Exc(t_("Impossible to get boundary"));
+	const UVector<int> &boundary = First(b);
+	
+	out << F("%s %d %d %d\n", x0z ? "1" : "0", nodes.size(), panels.size(), boundary.size()-1);
+	for (int i = 0; i < nodes.size(); ++i) {
+		const Point3D &node = nodes[i];
+		out << F("%8d    %014.7E   %014.7E   %014.7E\n", i+1, 
+				RoundClosest(node.x, 1E-9), RoundClosest(node.y, 1E-9), RoundClosest(node.z, 1E-9));
+	}
+	out << F("0 0. 0. 0.\n");
+	
+	for (int i = 0; i < panels.size(); ++i) {
+		const Panel &panel = panels[i];
+		out << F("%8d   %8d   %8d   %8d\n", panel.id[0]+1, panel.id[1]+1, panel.id[2]+1, panel.id[3]+1);
+	}
+	
+	for (int i = 0; i < boundary.size()-1; ++i)
+		out << F("%8d %8d\n", boundary[i]+1, boundary[i+1]+1);
+	
+	out << F("0 0. 0. 0.\n");
 }
 
 void NemohBody::SavePreBody(String fileName, const Surface &surf) {

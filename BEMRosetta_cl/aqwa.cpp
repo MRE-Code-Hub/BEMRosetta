@@ -7,7 +7,7 @@
 
 const char *textDOF[] = {"X", "Y", "Z", "RX", "RY", "RZ"};
 
-String Aqwa::Load(String file, Function <bool(String, int)> Status, double) {
+String Aqwa::Load(String file, Function <bool(String, int)> Status, bool onlyCase, double) {
 	dt.file = file;
 	dt.name = GetFileTitle(file);
 	if (ToLower(dt.name) == "analysis")
@@ -21,7 +21,11 @@ String Aqwa::Load(String file, Function <bool(String, int)> Status, double) {
 		
 		double factorMass = 1;
 		
-		if (ToLower(GetFileExt(file)) == ".lis") {
+		if (onlyCase) {
+			String ret = AQWABody::LoadDat(dt.msh, *this, file);
+			if (!ret.IsEmpty() && !ret.StartsWith(t_("Parsing error: ")))  
+				dt.Nh = dt.Nf = 0;
+		} else if (ToLower(GetFileExt(file)) == ".lis") {
 			BEM::Print("\n- " + F(t_("LIS file")));
 			if (!Load_LIS(factorMass, Status)) {
 				BEM::Print(F(": ** LIS file ") + t_("Not found") + "**");
@@ -51,13 +55,15 @@ String Aqwa::Load(String file, Function <bool(String, int)> Status, double) {
 		//if (IsNull(dt.Nb))
 		//	return false;
 		
-		BEM::Print("\n- " + F(t_("QTF file")));
-		if (!Load_QTF(factorMass)) 
-			BEM::Print(F(": ** QTF file ") + t_("Not found") + "**");
-		
-		BEM::Print("\n- " + F(t_("MQT file")));
-		if (dt.qhead.size() > 0 && !Load_MQT()) 
-			BEM::Print(F(": ** MQT file ") + t_("Not found") + "**");
+		if (!onlyCase) {
+			BEM::Print("\n- " + F(t_("QTF file")));
+			if (!Load_QTF(factorMass)) 
+				BEM::Print(F(": ** QTF file ") + t_("Not found") + "**");
+			
+			BEM::Print("\n- " + F(t_("MQT file")));
+			if (dt.qhead.size() > 0 && !Load_MQT()) 
+				BEM::Print(F(": ** MQT file ") + t_("Not found") + "**");
+		}
 		
 		if ((IsNull(dt.Nh) || dt.Nh <= 0) && dt.qhead.size() == 0)
 			return t_("No data found");

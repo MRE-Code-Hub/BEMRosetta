@@ -120,6 +120,7 @@ public:
 	static String Load(UArray<Body> &mesh, String file, double rho, double g, bool cleanPanels, double grid, double eps, bool &y0z, bool &x0z);
 	
 	String Heal(bool basic, double rho, double g, double grid, double eps, Function <bool(String, int pos)> Status);
+	void GetBoundary();
 	void RemovePanels(const UVector<int> &panels, double rho, double g);
 	void Orient();
 	void Append(const Surface &orig, double rho, double g);
@@ -222,6 +223,8 @@ public:
 			//ASSERT(iid >= 0);
 			id = iid;
 		}
+		
+		UVector<UVector<Point3D>> boundaries;
 		
 		UVector<bool> dof;
 		
@@ -1386,6 +1389,7 @@ public:
 	static String LoadDat(UArray<Body> &mesh, String fileName, bool &x0z);
 	static String LoadDatFS(UArray<Body> &mesh, String fileName, bool &x0z);
 	static void SaveDat(const UArray<Body> &mesh, String fileName, const Surface &surf, bool x0z, int &npanels);
+	static void SaveDatFS(String fileName, Surface &surf, bool x0z);
 	static void SavePreBody(String fileName, const Surface &surf);
 	void SaveKH(String fileName) const; 
 		
@@ -1644,9 +1648,6 @@ public:
 	void Save_Cal(String folder, const UVector<double> &freqs, /*const UVector<int> &nodes, const UVector<int> &panels, */int solver, 
 					bool x0z, const UVector<bool> &listDOF, int qtfType) const;
 	
-	bool Save_KH(String folder) const;
-	bool Save_Inertia(String folder) const;
-	
 	bool Load_Hydrostatics(String folder, String subfolder);
 	static bool Load_Hydrostatics_static(String folder, int Nb, UArray<Body> &msh);
 	void Save_Hydrostatics(String subfolder) const;
@@ -1660,18 +1661,24 @@ public:
 private:
 	bool Load_Cal(String fileName);
 	bool Load_Inf(String fileName);
-	bool Load_KH(String folder, String subfolder);
+	bool Load_KH(String folder);
+	bool Load_Km(String folder);
 	bool Load_Radiation(String fileName);
 	bool Load_Excitation(String folder);
 	bool Load_Diffraction(String folder);
 	bool Load_FroudeKrylov(String folder);
 	bool Load_Forces(Hydro::Forces &f, String nfolder, String fileName);
 	bool Load_IRF(String fileName);
-	bool Load_Inertia(String folder, String subfolder);
-	bool Load_LinearDamping(String folder, String subfolder);
+	bool Load_Inertia(String folder);
+	bool Load_LinearDamping(String folder);
 	bool Load_QTF(String folder, String subfolder, Function <bool(String, int)> Status);
 	bool Load_12(String fileName, bool isSum, Function <bool(String, int)> Status);
 	bool Load_RAO(String folder);
+	
+	bool Save_KH(String folder) const;
+	bool Save_Km(String folder) const;
+	bool Save_Inertia(String folder) const;
+	bool Save_LinearDamping(String folder) const;
 		
 	static int GetNumArgs(const LineParser &f);
 
@@ -1691,7 +1698,7 @@ private:
 class Aqwa : public Hydro {
 public:
 	Aqwa() {}
-	String Load(String file, Function <bool(String, int)> Status, double rho = Null);
+	String Load(String file, Function <bool(String, int)> Status, bool onlyCase = false, double rho = Null);
 	void Save(String file, Function <bool(String, int)> Status) const;
 	void SaveCaseDat(String folder, int numThreads, bool withPotentials, bool x0z, bool y0z, bool irregular, bool autoIrregular, int qtfType) const;
 	UVector<String> Check() const;
@@ -1963,6 +1970,7 @@ public:
 	int LoadBody(String file, Function <bool(String, int pos)> Status, bool cleanPanels, bool checkDuplicated, int idFrom = -1);
 	void SaveBody(String fileName, const UVector<int> &ids, Body::MESH_FMT type, Body::MESH_TYPE meshType, bool symX, bool symY);
 	void HealingBody(int id, bool basic, Function <bool(String, int pos)> Status);
+	void OpeningsBody(int id);
 	void OrientSurface(int id, Function <bool(String, int)> Status);
 	void ImageBody(int id, int axis);
 	void UnderwaterBody(int id, Function <bool(String, int pos)> Status);

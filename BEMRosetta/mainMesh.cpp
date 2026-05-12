@@ -76,6 +76,7 @@ void MainBody::Init() {
 	menuPlot.showSkewed.Tip(t_("Shows skewed panels")).WhenAction      			= [&] {LoadSelTab(Bem());};
 	menuPlot.showFissure.Tip(t_("Shows fissures in the hull")).WhenAction     	= [&] {LoadSelTab(Bem());};
 	menuPlot.showMultiPan.Tip(t_("Shows wrong panels")).WhenAction    			= [&] {LoadSelTab(Bem());};
+	menuPlot.showOpenings.Tip(t_("Shows mesh openings")).WhenAction    			= [&] {LoadSelTab(Bem());};
 	menuPlot.showAxis.Tip(t_("Shows system axis")).WhenAction  					= [&] {mainView.FullRefresh(*this);};
 	menuPlot.showLimits.Tip(t_("Shows boundaries of the geometry")).WhenAction 	= [&] {mainView.FullRefresh(*this);};
 	menuPlot.showCb.Tip(t_("Shows the centre of buoyancy of the submerged volume")).WhenAction  		= [&] {mainView.FullRefresh(*this);};
@@ -124,6 +125,12 @@ void MainBody::Init() {
 	menuPlot.cx 		<< [=]{mainView.FullRefresh(*this);};					menuPlot.cx <<= 0;
 	menuPlot.cy 		<< [=]{mainView.FullRefresh(*this);};					menuPlot.cy <<= 0;
 	menuPlot.cz 		<< [=]{mainView.FullRefresh(*this);};					menuPlot.cz <<= 0;	
+	
+	menuPlot.butFullHealing <<= THISBACK1(OnHealing, false);
+	menuPlot.butFullHealing.Tip(t_("Tries to fix problems in mesh"));
+	
+	menuPlot.butOpenings <<= THISBACK(OnOpenings);
+	menuPlot.butOpenings.Tip(t_("Detects openings in mesh"));
 	
 	CtrlLayout(menuAnimation);
 	menuAnimation.edTime.Pattern("%.2f");
@@ -862,7 +869,8 @@ void MainBody::OnOpt() {
 	case Body::HAMS_PNL:	menuOpen.symX.Enable();
 							menuOpen.symY.Enable();
 							break;
-	case Body::NEMOH_DAT:	menuOpen.symY.Enable();
+	case Body::NEMOH_DAT:
+	case Body::NEMOHFS_DAT:	menuOpen.symY.Enable();
 							break;
 	case Body::BEM_MESH:	menuOpen.symX.Disable();
 							menuOpen.symY.Disable();
@@ -1905,6 +1913,50 @@ void MainBody::OnHealing(bool basic) {
 		
 		Bem().HealingBody(idx, basic, [&](String str, int _pos) {progress.SetText(str); progress.SetPos(_pos); return progress.Canceled();});
 		
+		menuPlot.showSkewed = true;
+		menuPlot.showFissure = true;
+		menuPlot.showMultiPan = true;
+		UpdateButtons();
+		
+		UpdateLast(idx);
+		
+		mainView.FullRefresh(*this);
+		mainViewData.OnRefresh();
+	} catch (Exc e) {
+		BEM::PrintError(DeQtfLf(e));
+	}	
+	mainView.surf.Enable();
+}
+
+void MainBody::OnOpenings() {
+	GuiLock __;
+	
+	try {
+		int num = ArrayCtrlSelectedGetCount(listLoaded);
+		if (num > 1) {
+			BEM::PrintError(t_("Please select just one model"));
+			return;
+		}
+		int idx;
+		if (num == 0 && listLoaded.GetCount() == 1)
+			idx = ArrayModel_IndexBody(listLoaded, 0);
+		else {
+		 	idx = ArrayModel_IndexBody(listLoaded);
+			if (idx < 0) {
+				BEM::PrintError(t_("Please select a model to process"));
+				return;
+			}
+		}
+		
+		WaitCursor waitcursor;
+		Progress progress(t_("Detectinh openings ..."), 100); 
+		mainView.surf.Disable();
+		
+		Bem().OpeningsBody(idx);
+		
+		menuPlot.showOpenings = true;
+		UpdateButtons();
+		
 		UpdateLast(idx);
 		
 		mainView.FullRefresh(*this);
@@ -2220,6 +2272,22 @@ void MainBody::UpdateButtons() {
 	menuProcess.butWaterPlane.Enable(numsel == 1 || numrow == 1);
 	menuProcess.butHull.Enable(numsel == 1 || numrow == 1);
 	
+	int idx;
+	if (numsel == 1) {
+		if (listLoaded.GetCount() == 1)
+			idx = ArrayModel_IndexBody(listLoaded, 0);
+		else 
+		 	idx = ArrayModel_IndexBody(listLoaded);
+		if (idx >= 0) {
+			Body &msh = Bem().surfs[idx];
+			
+			menuPlot.showSkewed.Enable(!msh.dt.mesh.skewed.IsEmpty());
+			menuPlot.showFissure.Enable(!msh.dt.mesh.segTo1panel.IsEmpty());
+			menuPlot.showWaterLevel.Enable(!msh.dt.mesh.segWaterlevel.IsEmpty());
+			menuPlot.showMultiPan.Enable(!msh.dt.mesh.segTo3panel.IsEmpty());
+			menuPlot.showOpenings.Enable(!msh.dt.boundaries.IsEmpty());
+		}
+	}
 	menuMove.opZArchimede.WhenAction();
 }
 
@@ -2614,17 +2682,18 @@ void MainView::FullRefresh(MainBody &mainBody) {
 			if (menuPlot.showUnderwater)
 				surf.PaintSurface(msh.dt.under, color, color, 1, idx+10000, showNormalsUnderwater, msh.dt.mesh.avgFacetSideLen);
 			
-			if (menuPlot.showBody)
-				surf.PaintSegments(msh.dt.mesh, color);
-			
 			if (menuPlot.showSkewed)
 				surf.PaintSegments(msh.dt.mesh.skewed, LtRed());
 			if (menuPlot.showFissure)
 				surf.PaintSegments(msh.dt.mesh.segTo1panel, LtRed());
 			if (menuPlot.showWaterLevel)
-				surf.PaintSegments(msh.dt.under.segWaterlevel, LtBlue(), SurfaceView::OVER_ALL);
+				surf.PaintSegments(msh.dt.mesh.segWaterlevel, LtBlue(), SurfaceView::OVER_ALL);
 			if (menuPlot.showMultiPan)
 				surf.PaintSegments(msh.dt.mesh.segTo3panel, Black());
+			
+			if (menuPlot.showOpenings)
+				for (const auto &b : msh.dt.boundaries)
+					surf.PaintLines(b, LtRed(), surf.GetLineThickness()*2, SurfaceView::OVER_ALL);
 			
 			if (menuPlot.showCb && !IsNull(msh.dt.cb)) {
 				surf.PaintDoubleAxis(msh.dt.cb, len, LtBlue(), SurfaceView::OVER_ALL);

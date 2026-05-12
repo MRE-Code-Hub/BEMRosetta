@@ -168,7 +168,8 @@ int Hams::Load_ControlFile(String fileName) {
 	dt.msh.SetCount(1);	
 	dt.msh[0].dt.fileName = AFX(folder, "HullMesh.pnl");
 	dt.msh[0].dt.name = "Body";
-		
+	dt.lids.SetCount(1);
+				
 	String line;
 	LineParser f(in);
 	f.IsSeparator = IsTabSpace;

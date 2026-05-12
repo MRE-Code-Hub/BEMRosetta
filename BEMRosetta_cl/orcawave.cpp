@@ -786,16 +786,26 @@ void OrcaWave::SaveCase_OW_YML(String folder, bool bin, int numThreads, bool wit
 			out <<	"      - [0.001, 0, 	0]\n"
 					"      - [0, 	 0.001,	0]\n"
 					"      - [0, 	 0, 	0.001]\n";
-    	out << 	"    BodyInertiaTensorOriginType: User specified\n"
-    			"    BodyInertiaTensorUserOrigin: [" << F("%f, %f, %f", d.c0.x, d.c0.y, d.c0.z) << "]\n"
+    	out << 	"    BodyInertiaTensorOriginType: Body origin\n" //User specified\n"
+    			//"    BodyInertiaTensorUserOrigin: [" << F("%f, %f, %f", 0, 0, 0) << "]\n" // d.c0.x, d.c0.y, d.c0.z) << "]\n"
     			"    BodyExternalStiffnessMatrixx, BodyExternalStiffnessMatrixy, BodyExternalStiffnessMatrixz, BodyExternalStiffnessMatrixRx, BodyExternalStiffnessMatrixRy, BodyExternalStiffnessMatrixRz:\n";
-    	if (d.Cadd.size() > 0) {
+    	if (d.Cadd.size() == 36) {
     		for (int r = 0; r < 6; ++r) {
     			out << "      - [";
     			for (int c = 0; c < 6; ++c) {
     				if (c > 0)
     					out << ", ";
     				out << d.Cadd(r, c);
+    			}
+    			out << "]\n";
+    		}
+		} else if (d.Cmoor.size() == 36) {
+    		for (int r = 0; r < 6; ++r) {
+    			out << "      - [";
+    			for (int c = 0; c < 6; ++c) {
+    				if (c > 0)
+    					out << ", ";
+    				out << d.Cmoor(r, c);
     			}
     			out << "]\n";
     		}

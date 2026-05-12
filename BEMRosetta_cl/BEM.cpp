@@ -340,6 +340,12 @@ void BEM::HealingBody(int id, bool basic, Function <bool(String, int)> Status) {
 		Print(F(". ") + t_("The mesh is in good condition"));
 }
 
+void BEM::OpeningsBody(int id) {
+	Print(F("\n\n") + F(t_("Detecting mesh '%s' openings"), surfs[id].dt.fileName));
+	
+	surfs[id].GetBoundary();	
+}
+
 void BEM::OrientSurface(int id, Function <bool(String, int)> Status) {
 	Status(F(t_("Orienting surface mesh '%s'"), surfs[id].dt.fileName), 10);
 	Print(F("\n\n") + F(t_("Orienting surface mesh '%s'"), surfs[id].dt.fileName));

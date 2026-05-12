@@ -54,7 +54,7 @@ String Nemoh::Load(String file, Function <bool(String, int)> Status, double) {
 			if (!Load_Hydrostatics(folder, "Mesh"))
 				BEM::Print(F(": ** Mesh/Hydrostatics*.dat ") + t_("Not found") + "**");
 			BEM::Print(F("\n- ") + t_("KH file(s) 'Mesh/KH*.dat'"));
-			if (!Load_KH(folder, "Mesh"))
+			if (!Load_KH(folder))
 				BEM::Print(F(": ** Mesh/KH ") + t_("Not found") + "**");
 			
 			dynamic_cast<Wamit *>(this)->Load_frc(ForceExtSafer(fileCal, ".frc"));
@@ -89,8 +89,9 @@ String Nemoh::Load(String file, Function <bool(String, int)> Status, double) {
 			BEM::Print(F(": ** FKForce.tec ") + t_("Not found") + "**");
 					
 		if (dt.solver == Hydro::NEMOHv3) {
-			Load_Inertia(folder, "mechanics");
-			Load_LinearDamping(folder, "mechanics");
+			Load_Inertia(folder);
+			Load_LinearDamping(folder);
+			Load_Km(folder);
 			Load_QTF(folder, AFX("results", "qtf"), Status);
 		}
 		
@@ -574,6 +575,12 @@ void Nemoh::SaveFolder0(String folderBase, bool bin, int numCases, bool deleteFo
 		if (!DirectoryCreateX(folderMesh))
 			throw Exc(F(t_("Problem creating '%s' folder"), folderMesh));
 	
+		if (solver == Hydro::NEMOHv3) {
+			Save_Inertia(folder);
+			Save_LinearDamping(folder);
+			Save_Km(folder);
+		}
+		
 		UVector<int> numNodes(dt.Nb), numPanels(dt.Nb);
 		for (int ib = 0; ib < dt.msh.size(); ++ib) {
 			String dest = AFX(folderMesh, F(t_("Body_%d.dat"), ib+1));
@@ -581,12 +588,6 @@ void Nemoh::SaveFolder0(String folderBase, bool bin, int numCases, bool deleteFo
 			if (solver == Hydro::NEMOHv3) {
 				Save_Body_cal(folder, dt.msh.size() == 1 ? -1 : ib, 
 						dest, dt.msh[ib], dt.symY, dt.msh[ib].dt.cg, dt.rho, dt.g, dt.lids);
-				String inertiaName;
-				if (dt.msh.size() == 1)
-					inertiaName = "inertia.dat";
-				else
-					inertiaName = F("inertia_%d.dat", i);
-				Nemoh::Save_6x6(dt.msh[ib].dt.M, AFX(folderMech, inertiaName));
 			} else {
 				String khName;
 				if (dt.msh.size() == 1)
@@ -786,15 +787,27 @@ void Nemoh::Save_Cal(String folder, const UVector<double> &freqs, int solver, bo
 			out << NemohField(F("%d %f %f", Nf, minF, maxF), cp) << "! Number of radial frequencies, Min, and Max values for the QTF computation" << "\n";
 			out << "1                            ! 0 Unidirection, Bidirection 1\n";
 			
-			out << "2                            ! Contrib, 1 DUOK, 2 DUOK+HASBO, 3 Full QTF (DUOK+HASBO+HASFS+ASYMP)\n";
-			out << "NA                           ! Name of free surface meshfile (Only for Contrib 3), type 'NA' if not applicable\n"; 
-			out << "0  0  0                      ! Free surface QTF parameters: Re Nre NBessel (for Contrib 3)\n";
+			if (qtfType == 7) {
+				out << "3                            ! Contrib, 1 DUOK, 2 DUOK+HASBO, 3 Full QTF (DUOK+HASBO+HASFS+ASYMP)\n";
+			
+				int nNodes, nPanels;
+				String name = "lid.dat";
+				Body::SaveAs(dt.css[0], AFX(folderMesh, name), Body::NEMOHFS_DAT, Body::ALL, dt.rho, dt.g, false, x0z, nNodes, nPanels);
+				String file = AFX("mesh", name);
+				out << NemohField(F("%s", file), cp) << "! Name of free surface meshfile (Only for Contrib 3), type 'NA' if not applicable\n"; 
+				double rad = (dt.css[0].dt.mesh.env.maxX - dt.css[0].dt.mesh.env.minX)/2;
+				out << NemohField(F("%.2f  100  30", rad), cp) << "! Free surface QTF parameters: Re Nre NBessel (for Contrib 3)\n";
+			} else {
+				out << "2                            ! Contrib, 1 DUOK, 2 DUOK+HASBO, 3 Full QTF (DUOK+HASBO+HASFS+ASYMP)\n"
+					   "NA                           ! Name of free surface meshfile (Only for Contrib 3), type 'NA' if not applicable\n"
+				       "0   0   0                    ! Free surface QTF parameters: Re Nre NBessel (for Contrib 3)\n";
+			}
 
 			out << "0                            ! 1 Includes Hydrostatic terms of the quadratic first order motion, -[K]xi2_tilde\n"
 				   "1                            ! For QTFposProc, output freq type, 1,2,3=[rad/s,Hz,s]\n"
 				   "1                            ! For QTFposProc, 1 includes DUOK in total QTFs, 0 otherwise\n"
-				   "1                            ! For QTFposProc, 1 includes HASBO in total QTFs, 0 otherwise\n" 
-				   "0	                         ! For QTFposProc, 1 includes HASFS+ASYMP in total QTFs, 0 otherwise\n";			  
+				   "1                            ! For QTFposProc, 1 includes HASBO in total QTFs, 0 otherwise\n"; 
+			out << (qtfType == 7 ? "1" : "0") << "	                         ! For QTFposProc, 1 includes HASFS+ASYMP in total QTFs, 0 otherwise\n";			  
 		}
 	}
 	out << NemohHeader("") << "\n";;
@@ -920,13 +933,13 @@ void Nemoh::Save_Hydrostatics_static(String folder, int Nb, const UArray<Body> &
 	}
 }
 
-bool Nemoh::Load_KH(String folder, String subfolder) {
+bool Nemoh::Load_KH(String folder) {
 	for (int ib = 0; ib < dt.Nb; ++ib) {
 	    String fileKH;
 		if (dt.Nb == 1) 
-			fileKH = AFX(folder, subfolder, "KH.dat");
+			fileKH = AFX(folder, "Mesh", "KH.dat");
 		else 
-			fileKH = AFX(folder, subfolder, F("KH_%d.dat", ib));
+			fileKH = AFX(folder, "Mesh", F("KH_%d.dat", ib));
 	    
 	    if (!Load_6x6(dt.msh[ib].dt.C, fileKH))
 	        return false;	        
@@ -934,13 +947,27 @@ bool Nemoh::Load_KH(String folder, String subfolder) {
 	return true;
 }
 
-bool Nemoh::Load_Inertia(String folder, String subfolder) {
+bool Nemoh::Load_Km(String folder) {
+	for (int ib = 0; ib < dt.Nb; ++ib) {
+	    String fileKm;
+		if (dt.Nb == 1) 
+			fileKm = AFX(folder, "mechanics", "Km.dat");
+		else 
+			fileKm = AFX(folder, "mechanics", F("Km_%d.dat", ib));
+	    
+	    if (!Load_6x6(dt.msh[ib].dt.Cadd, fileKm))
+	        return false;	        
+	}
+	return true;
+}
+
+bool Nemoh::Load_Inertia(String folder) {
 	for (int ib = 0; ib < dt.Nb; ++ib) {
 	    String file;
 		if (dt.Nb == 1) 
-			file = AFX(folder, subfolder, "inertia.dat");
+			file = AFX(folder, "mechanics", "inertia.dat");
 		else 
-			file = AFX(folder, subfolder, F("inertia_%d.dat", ib));
+			file = AFX(folder, "mechanics", F("inertia_%d.dat", ib));
 	    
 	    if (!Load_6x6(dt.msh[ib].dt.M, file))
 	        return false;	        
@@ -948,13 +975,13 @@ bool Nemoh::Load_Inertia(String folder, String subfolder) {
 	return true;
 }
 
-bool Nemoh::Load_LinearDamping(String folder, String subfolder) {
+bool Nemoh::Load_LinearDamping(String folder) {
 	for (int ib = 0; ib < dt.Nb; ++ib) {
 	    String file;
 		if (dt.Nb == 1) 
-			file = AFX(folder, subfolder, "Badd.dat");
+			file = AFX(folder, "mechanics", "Badd.dat");
 		else 
-			file = AFX(folder, subfolder, F("Badd_%d.dat", ib));
+			file = AFX(folder, "mechanics", F("Badd_%d.dat", ib));
 	    
 	    MatrixXd m;
 	    if (!Load_6x6(m, file))
@@ -1110,6 +1137,26 @@ bool Nemoh::Save_KH(String folder) const {
 	return true;
 }
 
+bool Nemoh::Save_Km(String folder) const {
+	for (int ib = 0; ib < dt.Nb; ++ib) {
+	    String file;
+		if (dt.Nb == 1) 
+			file = AFX(folder, "mechanics", "Km.dat");
+		else 
+			file = AFX(folder, "mechanics", F("Km_%d.dat", ib));
+	    
+	    MatrixXd C = MatrixXd::Zero(6, 6);
+	    if (dt.msh[ib].dt.Cadd.size() == 36)
+	        C = dt.msh[ib].dt.Cadd;
+	    if (dt.msh[ib].dt.Cmoor.size() == 36)
+	        C += dt.msh[ib].dt.Cmoor;
+	    
+	    if (!Save_6x6(C, file))
+	        return false;
+	}
+	return true;
+}
+
 bool Nemoh::Save_Inertia(String folder) const {
 	for (int ib = 0; ib < dt.Nb; ++ib) {
 	    String file;
@@ -1119,6 +1166,20 @@ bool Nemoh::Save_Inertia(String folder) const {
 			file = AFX(folder, "mechanics", F("inertia_%d.dat", ib));
 	    
 	    if (!Save_6x6(dt.msh[ib].dt.M, file))
+	        return false;
+	}
+	return true;
+}
+
+bool Nemoh::Save_LinearDamping(String folder) const {
+	for (int ib = 0; ib < dt.Nb; ++ib) {
+	    String file;
+		if (dt.Nb == 1) 
+			file = AFX(folder, "mechanics", "Badd.dat");
+		else 
+			file = AFX(folder, "mechanics", F("Badd_%d.dat", ib));
+	    
+	    if (!Save_6x6(dt.msh[ib].dt.Dlin, file))
 	        return false;
 	}
 	return true;
@@ -1253,13 +1314,11 @@ bool Nemoh::Load_RAO(String folder) {
 	line = f.GetLine();
 	if (line.Find("ang(x) (deg)") > 0)
 		angfactor = M_PI/180;
-	f.GetLine();
 	
 	for (int ih = 0; ih < dt.Nh; ++ih) {
-		if (dt.Nh > 1)
-			f.GetLine();
 		for (int ifr = 0; ifr < dt.Nf; ++ifr) {
-			f.GetLine();
+			while (f.GetLine().Find("ZONE") >= 0)
+				;
 			int ic = 1;
 			for (int ib = 0; ib < dt.Nb; ++ib) {	
 				for (int idof = 0; idof < 6; ++idof) {

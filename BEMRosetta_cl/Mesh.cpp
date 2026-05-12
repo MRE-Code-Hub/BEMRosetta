@@ -10,7 +10,7 @@ const UVector<Body::MeshInfo> Body::meshInfo = {
     {Body::WAMIT_CSF2,    "Wamit B-spline .csf",true,"*.csf"},
     {Body::WAMIT_DAT,     "Wamit .dat",      false,  "*.dat"},
     {Body::NEMOH_DAT,     "Nemoh .dat",      true,   "*.dat"},
-    {Body::NEMOHFS_DAT,   "NemohFS .dat",    false,  "*.dat"},
+    {Body::NEMOHFS_DAT,   "NemohFS .dat",    true,   "*.dat"},
     {Body::NEMOH_PRE,     "Nemoh premesh",   false,  ""},
     {Body::AQWA_DAT,      "AQWA .dat",       true,   "*.dat"},
     {Body::AQWA_LIS,      "AQWA .lis",       false,  "*.lis"},
@@ -85,7 +85,8 @@ void Body::Data::Copy(const Body::Data &msh) {
 	spline = clone(msh.spline);
 	spline0 = clone(msh.spline0);
 	
-	dof = clone(dof);
+	dof = clone(msh.dof);
+	boundaries = clone(msh.boundaries);
 	
 	SetCode(msh.GetCode());
 	SetId(msh.GetId());
@@ -121,7 +122,8 @@ Body::Data::Data(Body::Data &&msh) noexcept {
 	spline = pick(msh.spline);
 	spline0 = pick(msh.spline0);
 	
-	dof = pick(dof);
+	dof = pick(msh.dof);
+	boundaries = pick(msh.boundaries);
 	
 	SetCode(msh.GetCode());
 	SetId(msh.GetId());	
@@ -419,7 +421,7 @@ void Body::SaveAs(const UArray<Body> &meshes, const UVector<String> &fileNames, 
 		}
 		
 		if (surf.panels.IsEmpty() && surf.lines.IsEmpty())
-			throw Exc(F(t_("Impossible to save body %d mesh. No mesh found"), ib+1));		
+			throw Exc(F(t_("Impossible to save %s. No mesh found"), fileNames[ib]));		
 		
 		if (symX && (type == WAMIT_GDF || type == WAMIT_CSF || type == HAMS_PNL || type == DIODORE_DAT || 
 					 type == AQWA_DAT || type == MIKE21_GRD || type == HYDROSTAR_HST)) {
@@ -430,7 +432,7 @@ void Body::SaveAs(const UArray<Body> &meshes, const UVector<String> &fileNames, 
 		if (symX && (type == WAMIT_GDF2 || type == WAMIT_CSF2))
 			spline.CutX();
 				
-		if (symY && (type == WAMIT_GDF || type == WAMIT_CSF || type == NEMOH_DAT || type == NEMOH_PRE || 
+		if (symY && (type == WAMIT_GDF || type == WAMIT_CSF || type == NEMOH_DAT || type == NEMOHFS_DAT || type == NEMOH_PRE || 
 					 type == HAMS_PNL || type == DIODORE_DAT || type == AQWA_DAT || 
 					 type == MIKE21_GRD || type == HYDROSTAR_HST)) {
 			Surface nsurf;
@@ -471,6 +473,8 @@ void Body::SaveAs(const UArray<Body> &meshes, const UVector<String> &fileNames, 
 				splines[ib].SaveGdf(fileNames[ib], g, symX, symY, true);
 			else if (type == NEMOH_DAT) 
 				NemohBody::SaveDat(meshes, fileNames[ib], surfs[ib], symY, nPanels);
+			else if (type == NEMOHFS_DAT) 
+				NemohBody::SaveDatFS(fileNames[ib], surfs[ib], symY);
 			else if (type == NEMOH_PRE) 
 				NemohBody::SavePreBody(fileNames[ib], surfs[ib]);
 			else if (type == HAMS_PNL)		
@@ -505,6 +509,17 @@ String Body::Heal(bool basic, double rho, double g, double grid, double eps, Fun
 	AfterLoad(rho, g, false, false);
 	
 	return String();
+}
+
+void Body::GetBoundary() {
+	UVector<UVector<int>> allb = dt.mesh.GetAllBoundaries();
+	dt.boundaries.SetCount(allb.size());
+	for (int ibo = 0; ibo < allb.size(); ++ibo) {
+		dt.boundaries[ibo].Reserve(allb[ibo].size()+1);
+		for (int i = 0; i < allb[ibo].size(); ++i) 
+			dt.boundaries[ibo] << dt.mesh.nodes[allb[ibo][i]];
+		dt.boundaries[ibo] << dt.mesh.nodes[allb[ibo][0]];
+	}
 }
 
 void Body::RemovePanels(const UVector<int> &panels, double rho, double g) {

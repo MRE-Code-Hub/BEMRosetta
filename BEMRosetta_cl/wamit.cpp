@@ -2966,7 +2966,7 @@ void Wamit::Save_pot(String fileName, bool withMesh, bool x0z, bool y0z, const U
 		bool is2 = false;
 		for (int ib = 0; ib < dt.Nb; ++ib) {
 			if (msh[ib].dt.spline.IsEmpty()) {
-				if (!lids.IsEmpty() && !lids[ib].IsEmpty() > ib && irregular && !autoirregular) 
+				if (!lids.IsEmpty() && !lids[ib].IsEmpty() && irregular && !autoirregular) 
 					msh[ib].dt.under.Append(lids[ib].dt.mesh);
 				msh[ib].dt.under.Translate(-msh[ib].dt.c0.x, -msh[ib].dt.c0.y, -msh[ib].dt.c0.z);	
 				msh[ib].dt.mesh = clone(msh[ib].dt.under);
