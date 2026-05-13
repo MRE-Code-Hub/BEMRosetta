@@ -721,6 +721,10 @@ void MainSolver::arrayOnDuplicate() {
 	
 	bodies.array.Add(bscroll.AddPane(last, true, true).SizePos(), ~sel.name);
 	last.name.WhenAction = [&]() {
+		int id = bodies.array.GetCursor();
+		if (id < 0)
+			return;
+		MainSolverBody &sel = bodiesEach[id];
 		bodies.array.grid.Set(bodies.array.GetCursor(), 0, ~sel.name);
 	};	
 }

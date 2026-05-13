@@ -17,7 +17,7 @@ const char *Hydro::strDataToPlot[] = {t_("A(ω)"), t_("A∞"), t_("A₀"), t_("B
 				t_("|RAO|"), t_("arg(RAO)"), t_("|Z|"), t_("arg(Z)"), t_("|Kr|"), t_("arg(Kr)"), 
 				t_("|TFS|"), t_("arg(TFS)")};
 
-
+	    
 const UVector<Hydro::BEMInfo> Hydro::bemInfo = {
     {WAMIT,           "Wamit .out",               true,   "*.out",   true,  true,  true,  "789", true , true},
     {WAMIT_1_3,       "Wamit .1.3 T(s) OpenFAST", true,   "*.1",     false, false, false, "", 	 false, true},
@@ -28,8 +28,8 @@ const UVector<Hydro::BEMInfo> Hydro::bemInfo = {
     {MATLAB,          "Matlab .mat",              true,   "*.mat",   false, false, false, "", 	 false, false},
     {FAST_WAMIT,      "FAST .dat.1.2.3...",       true,   "*.1",     false, false, false, "", 	 false, true},
     {HAMS_WAMIT,      "HAMS Wamit",               false,  "",        true,  true,  false, "", 	 false, true},
-    {HAMS,            "HAMS",                     false,  "",        true,  true,  false, "", 	 false, true},
-    {HAMS_MREL,       "HAMS MREL",                false,  "",        false, false, false, "", 	 false, true},
+    {HAMS,            "HAMS",                     false,  "",        true,  true,  false, "", 	 false, false},
+    {HAMS_MREL,       "HAMS MREL",                false,  "",        true,  true,  false, "", 	 false, true},
     {WADAM_WAMIT,     "Wadam Wamit",              false,  "",        false, false, false, "", 	 false, true},
     {NEMOH,           "Nemoh v2",                 false,  "",        true,  false, false, "", 	 false, false},
     {NEMOHv115,       "Nemoh v115",               false,  "",        true,  false, false, "", 	 false, false},

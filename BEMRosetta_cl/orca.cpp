@@ -200,14 +200,16 @@ void __stdcall Orca::DiffractionHandlerProc(THHANDLE handle, LPCWSTR lpProgress,
 	lastPerc = perc;
 	
 	Time et;
-	if (perc == 0)
+	int64 duration;
+	if (perc == 0) {
 		et = Null;
-	else {
+		duration = Null;
+	} else {
 		int64 sec = GetSysTime() - startCalc - noLicenseTime;
-		int64 estsec = int64(100*sec/double(perc));
-		et = startCalc + estsec;
+		int64 duration = int64(100*sec/double(perc));
+		et = startCalc + duration;
 	}
-	*lpCancel = WhenWave(msg, perc, et);
+	*lpCancel = WhenWave(msg, perc, et, duration);
 }
 
 void __stdcall Orca::StaticsHandlerProc(THHANDLE handle, LPCWSTR lpProgress, BOOL *lpCancel) {

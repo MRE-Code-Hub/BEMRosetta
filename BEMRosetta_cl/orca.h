@@ -920,7 +920,7 @@ public:
 	void SetNumTries(int num)		{numTries = num;}
 		
 	String GetDLLPath() const		{return dllFile;}	
-	static Function<bool(String, int, const Time &)> WhenWave;
+	static Function<bool(String, int, const Time &, int64)> WhenWave;
 	static Function<bool(String)> WhenPrint;
 	static Time startCalc, lastLog, beginNoLicense;
 	static int64 noLicenseTime;

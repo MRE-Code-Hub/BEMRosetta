@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright 2020 - 2022, the BEMRosetta author and contributors
+// Copyright 2020 - 2026, the BEMRosetta author and contributors
 #include "BEMRosetta.h"
 #include "BEMRosetta_int.h"
 #include <STEM4U/Utility.h>
@@ -25,8 +25,12 @@ String Hams::Load(String filein, bool onlycase, Function <bool(String, int)> Sta
 		
 		int output_frequency_type = 0;
 		String controlFile = AFX(baseFolder, "Input", "ControlFile.in");
-		if (FileExists(controlFile)) 
-			output_frequency_type = Load_ControlFile(controlFile);
+		if (FileExists(controlFile)) {
+			bool ismrel;
+			output_frequency_type = Load_ControlFile(controlFile, ismrel);
+			if (ismrel)
+				dt.solver = Hydro::HAMS_MREL;
+		}
 		
 		int iperout;
 		switch (output_frequency_type) {// HAMS						-> Wamit
@@ -154,7 +158,7 @@ UVector<String> Hams::Check() const {
 	return ret;
 }
 
-int Hams::Load_ControlFile(String fileName) {
+int Hams::Load_ControlFile(String fileName, bool &ismrel) {
 	dt.g = 9.80665;		// Is constant
 
 	String folder = GetFileFolder(fileName);
@@ -174,7 +178,7 @@ int Hams::Load_ControlFile(String fileName) {
 	LineParser f(in);
 	f.IsSeparator = IsTabSpace;
 	
-	bool ismrel = false;
+	ismrel = false;
 	int input_frequency_type = 0, output_frequency_type = 0;
 	
 	while (!f.IsEof()) {
@@ -345,7 +349,9 @@ int Hams::Load_ControlFile(String fileName) {
 	}
 	if (!ismrel) {
 		Body &b = dt.msh[0];
+		Point3D c0 = clone(b.dt.c0);		// Wamit load sets c0(0,0,0) by default
 		String ret = Body::Load(b, b.dt.fileName, dt.rho, Bem().g, Null, Null, false);
+		b.dt.c0 = pick(c0);
 		if (!IsEmpty(ret))
 			BEM::PrintWarning(F(t_("Problem loading mesh '%s': %s"), b.dt.fileName, ret));
 		b.AfterLoad(dt.rho, Bem().g, false, false, false, false);
@@ -414,7 +420,7 @@ void Hams::SaveFolder0(String folderBase, bool bin, int numCases, bool deleteFol
 	if (numCases > 1)  
 		valsf = NumSets(dt.Nf, numCases);
 	
-	String solvName = "HAMS_x64.exe";
+	String solvName = !ismrel ? "HAMS_x64.exe" : "HAMS_MREL.exe";
 	if (bin) {
 		String source;
 		if (!ismrel)
@@ -462,7 +468,7 @@ void Hams::SaveFolder0(String folderBase, bool bin, int numCases, bool deleteFol
 		if (IsNull(numThreads) || numThreads <= 0)
 			numThreads = 8;
 		Save_ControlFile(folderInput, freqs, numThreads, irrRemoval, listPoints, ismrel);
-		Save_Hydrostatic(folderInput);
+		Save_Hydrostatic(folderInput, ismrel);
 		
 		if (y0z == true && x0z == true) 
 			y0z = false;
@@ -479,11 +485,18 @@ void Hams::SaveFolder0(String folderBase, bool bin, int numCases, bool deleteFol
 			}
 		} else {
 			for (int ib = 0; ib < dt.Nb; ++ib) {
-				String dest = AFX(folderInput, F("HullMesh_%d.pnl", ib+1));
+				String dest;
+				if (dt.Nb == 1)
+					dest = AFX(folderInput, "HullMesh.pnl");
+				else
+					dest = AFX(folderInput, F("HullMesh_%d.pnl", ib+1));
 				Body::SaveAs(dt.msh[ib], dest, Body::HAMS_PNL, Body::UNDERWATER, dt.rho, dt.g, y0z, x0z);
 				
 				if (irrRemoval) {
-					dest = AFX(folderInput, F("WaterplaneMesh_%d.pnl", ib+1));
+					if (dt.Nb == 1)
+						dest = AFX(folderInput, "WaterplaneMesh.pnl");
+					else
+						dest = AFX(folderInput, F("WaterplaneMesh_%d.pnl", ib+1));
 					Body::SaveAs(dt.lids[ib], dest, Body::HAMS_PNL, Body::ALL, dt.rho, dt.g, y0z, x0z);
 				}
 			}
@@ -550,27 +563,32 @@ void Hams::InMatrix(LineParser &f, Eigen::MatrixXd &mat) {
 	}
 }
 	
-void Hams::Save_Hydrostatic(String folderInput) const {
-	String fileName = AFX(folderInput, "Hydrostatic.in");
-	FileOut out(fileName);
-	if (!out.IsOpen())
-		throw Exc(F(t_("Impossible to create '%s'"), fileName));
-	out << " Center of Gravity:";
+void Hams::Save_Hydrostatic(String folderInput, bool ismrel) const {
+	String fileName;
+	for (int ib = 0; ib < dt.Nb; ++ib) {
+		if (!ismrel || dt.Nb == 1)
+			fileName = AFX(folderInput, "Hydrostatic.in");
+		else
+			fileName = AFX(folderInput, F("Hydrostatic_%d.in", ib+1));
+		FileOut out(fileName);
+		if (!out.IsOpen())
+			throw Exc(F(t_("Impossible to create '%s'"), fileName));
+		out << " Center of Gravity:";
+		
+		if (dt.msh.IsEmpty())
+			throw Exc(t_("No bodies found"));
+		
+		const Body &b = dt.msh[ib];
+		out << F("\n  %.15E  %.15E  %.15E", b.dt.cg[0], b.dt.cg[1], b.dt.cg[2]);
 	
-	if (dt.msh.IsEmpty())
-		throw Exc(t_("No bodies found"));
-	
-	const Body &b = dt.msh[0];
-	out << F("\n  %.15E  %.15E  %.15E", b.dt.cg[0], b.dt.cg[1], b.dt.cg[2]);
-
-	OutMatrix(out, "Body Mass Matrix", b.dt.M);
-	OutMatrix(out, "External Linear Damping Matrix", b.dt.Dlin);
-	OutMatrix(out, "External Quadratic Damping Matrix", b.dt.Dquad);
-	OutMatrix(out, "Hydrostatic Restoring Matrix", b.dt.C);
-	OutMatrix(out, "External Restoring Matrix", b.dt.Cadd);
-	out << "\n";
+		OutMatrix(out, "Body Mass Matrix", b.dt.M);
+		OutMatrix(out, "External Linear Damping Matrix", b.dt.Dlin);
+		OutMatrix(out, "External Quadratic Damping Matrix", b.dt.Dquad);
+		OutMatrix(out, "Hydrostatic Restoring Matrix", b.dt.C);
+		OutMatrix(out, "External Restoring Matrix", b.dt.Cadd);
+		out << "\n";
+	}
 }
-
 
 void Hams::Save_Settings(String folderInput) const {
 	String fileName = AFX(folderInput, "Settings.ctrl");
@@ -632,7 +650,7 @@ void Hams::Save_ControlFile(String folderInput, const UVector<double> &freqs,
 	out << "\n   #End Definition of Wave Frequencies"
 		   "\n";
 	
-	if (ismrel) { 
+	if (ismrel && dt.Nb > 1) { 
    		out << "\n   # Start of definition of bodies for multi-body interaction";
     	out << "\n    Number_of_bodies          " << FormatInt(dt.Nb);
     	for (int ib = 0; ib < dt.Nb; ++ib) {
@@ -660,18 +678,18 @@ void Hams::Save_ControlFile(String folderInput, const UVector<double> &freqs,
 	else {
 		for (int ib = 0; ib < dt.Nb; ++ib)
 			out << "\n    Reference_body_center_" << FormatInt(ib+1) << " " << F("%11.3f %11.3f %11.3f", 
-									dt.msh[0].dt.c0[0], dt.msh[0].dt.c0[1], dt.msh[0].dt.c0[2]);
+									dt.msh[ib].dt.c0[0], dt.msh[ib].dt.c0[1], dt.msh[ib].dt.c0[2]);
 	}
 	
 	out << "\n    Reference_body_length   1.D0"
-		   "\n    Wave_diffrac_solution    2";
+		   "\n    Wave_diffrac_solution    1";
 	
 	out << "\n    If_remove_irr_freq      " << (remove_irr_freq ? 1 : 0);
 	out << "\n    Number of threads       " << numThreads;
 	
 	out << "\n"
 		   "\n   #Start Definition of Pressure and/or Elevation (PE)";
-	if (listPoints.IsEmpty())
+	if (listPoints.IsEmpty() && !ismrel)
 		out << "\n    Number_of_field_points     1                           # number of field points where to calculate PE"
 			   "\n    0.000000    0.000000    0.000000    Global_coords_point_1";
 	else {

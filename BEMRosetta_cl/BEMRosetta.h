@@ -1584,7 +1584,7 @@ public:
 	bool Load_Settings(String settingsFile);
 	bool Load_HydrostaticBody(String fileName, double rhog);
 	
-	int Load_ControlFile(String fileName);
+	int Load_ControlFile(String fileName, bool &ismrel);
 	void SaveCase(String folder, bool bin, int numCases, int numThreads, bool x0z, bool y0z, 
 				const UVector<Point3D> &listPoints, bool ismrel, bool irregular, bool autoIrregular, int qtfType) const;
 	UVector<String> Check() const;
@@ -1597,7 +1597,7 @@ private:
 	static void OutMatrix(FileOut &out, String header, const MatrixXd &mat);
 	static void InMatrix(LineParser &f, MatrixXd &mat);
 		
-	void Save_Hydrostatic(String folderInput) const;
+	void Save_Hydrostatic(String folderInput, bool ismrel) const;
 	void Save_ControlFile(String folderInput, const UVector<double> &freqs,
 							int numThreads, bool remove_irr_freq, const UVector<Point3D> &listPoints, bool ismrel) const;
 	void Save_Settings(String folderInput) const;

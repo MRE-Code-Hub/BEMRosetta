@@ -8,11 +8,11 @@ BEM &Bem() 		{static BEM bem;		return bem;}
 #ifdef PLATFORM_WIN32
 #include "orca.h"
 
-Function<bool(String, int, const Time &)> Orca::WhenWave = [](String str, int perc, const Time &et)->bool {
+Function<bool(String, int, const Time &, int64)> Orca::WhenWave = [](String str, int perc, const Time &et, int64 duration)->bool {
 	if (IsNull(et))
 		BEM::Print("\nCompleted 0%"); 
 	else
-		BEM::Print(Format("\nCompleted %d%%. Et: %", perc, et)); 
+		BEM::Print(F("\nCompleted %d%%. Et: %", perc, et) + F(". Duration: %s", SecondsToString(duration, 0, false, false, true, false, false))); 
 	return 0;
 };
 
