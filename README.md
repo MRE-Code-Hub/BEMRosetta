@@ -34,10 +34,11 @@ BEMRosetta runs on Windows and Linux, **no install is necessary in Windows** [(s
 	* [OrcaFlex](https://www.orcina.com/orcaflex/): .yml
     * [OrcaWave](https://www.orcina.com/orcaflex/): .owr (requires OrcaWave installed)
     * [HAMS](https://github.com/YingyiLiu/HAMS): ControlFile.in
+    * [HAMS-MREL](https://research.tudelft.nl/en/datasets/hydrodynamic-analysis-of-marine-structures-marine-renewable-energ/): ControlFile.in
     * [Nemoh](https://lheea.ec-nantes.fr/logiciels-et-brevets/nemoh-presentation-192863.kjsp) and [Capytaine](https://github.com/mancellin/capytaine): Nemoh.cal, Mesh/Hydrostatics*.dat, Mesh/KH*.dat, RadiationCoefficients.tec, ExcitationForce.tec, DiffractionForce.tec, FKForce.tec, IRF.tec
     * [Capytaine](https://github.com/mancellin/capytaine): .nc
     * [Bemio](https://wec-sim.github.io/bemio/api.html#writing-the-data-to-the-standard-bemio-format): .h5
-	* [Matlab]: .mat
+	* [Matlab](https://github.com/tbeu/matio): .mat
     * [Diodore](https://www.principia-group.com/blog/product/diodore/): .hdb
     * [Hydrostar](https://marine-offshore.bureauveritas.com/hydrostar-software-powerful-hydrodynamic): .out
     * [OpenFAST-Wamit](https://www.nrel.gov/wind/nwtc/openfast.html): HydroDyn.dat
@@ -46,25 +47,28 @@ BEMRosetta runs on Windows and Linux, **no install is necessary in Windows** [(s
     
   * Save
     * [Wamit](https://www.wamit.com/): .out, .1, .3, .hst, .4, .7, .8, .9, .12s, .12d
-    * [HAMS](https://github.com/YingyiLiu/HAMS): ControlFile.in and all the folder structure.
+    * [HAMS](https://github.com/YingyiLiu/HAMS): ControlFile.in and all the folders structure.
+    * [HAMS-MREL](https://research.tudelft.nl/en/datasets/hydrodynamic-analysis-of-marine-structures-marine-renewable-energ/): ControlFile.in and all the folders structure.
     * [Bemio](https://wec-sim.github.io/bemio/api.html#writing-the-data-to-the-standard-bemio-format): .h5
-    * [Matlab]: .mat
+    * [Matlab](https://github.com/tbeu/matio): .mat
 	* [Diodore](https://www.principia-group.com/blog/product/diodore/): .hdb
     * [Ansys AQWA](https://www.ansys.com/products/structures/ansys-aqwa): .qtf
     * [OpenFAST-Wamit](https://nwtc.nrel.gov/FAST): HydroDyn.dat
 
 * Case files
-    * Load-View
-      * [HAMS](https://github.com/YingyiLiu/HAMS) and [HAMS-MREL](https://research.tudelft.nl/en/datasets/hydrodynamic-analysis-of-marine-structures-marine-renewable-energ/): ControlFile.in
+    * Load
+      * [HAMS](https://github.com/YingyiLiu/HAMS): ControlFile.in
+      * [HAMS-MREL](https://research.tudelft.nl/en/datasets/hydrodynamic-analysis-of-marine-structures-marine-renewable-energ/): ControlFile.in.
       * [Nemoh](https://lheea.ec-nantes.fr/logiciels-et-brevets/nemoh-presentation-192863.kjsp) and [Capytaine](https://github.com/mancellin/capytaine): Nemoh.cal and all the folder structure.
       * [Ansys AQWA](https://www.ansys.com/products/structures/ansys-aqwa): .dat
-	  * [Wamit](https://www.wamit.com/): .pot, .frc, .cfg
+	  * [Wamit](https://www.wamit.com/): .pot, .frc, .cfg, .wam
 	  * [OrcaWave](https://www.orcina.com/orcaflex/): .yml
     * Save
-      * [HAMS](https://github.com/YingyiLiu/HAMS) and [HAMS-MREL](https://research.tudelft.nl/en/datasets/hydrodynamic-analysis-of-marine-structures-marine-renewable-energ/): ControlFile.in and all the folder structure.
+      * [HAMS](https://github.com/YingyiLiu/HAMS): ControlFile.in and all the folders structure.
+      * [HAMS-MREL](https://research.tudelft.nl/en/datasets/hydrodynamic-analysis-of-marine-structures-marine-renewable-energ/): ControlFile.in and all the folders structure.
       * [Nemoh](https://lheea.ec-nantes.fr/logiciels-et-brevets/nemoh-presentation-192863.kjsp) and [Capytaine](https://github.com/mancellin/capytaine): Nemoh.cal and all the folder structure.
 	  * [Ansys AQWA](https://www.ansys.com/products/structures/ansys-aqwa): .dat
-	  * [Wamit](https://www.wamit.com/): .pot, .frc, .cfg 
+	  * [Wamit](https://www.wamit.com/): .pot, .frc, .cfg, .wam 
 	  * [OrcaWave](https://www.orcina.com/orcaflex/): .yml
 	  * [Hydrostar](https://marine-offshore.bureauveritas.com/hydrostar-software-powerful-hydrodynamic): .hsg, .mcn, ,rao, ,qtf, .rdf, .dft
       
