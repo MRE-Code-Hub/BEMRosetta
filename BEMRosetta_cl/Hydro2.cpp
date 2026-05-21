@@ -17,6 +17,8 @@ const char *Hydro::strDataToPlot[] = {t_("A(ω)"), t_("A∞"), t_("A₀"), t_("B
 				t_("|RAO|"), t_("arg(RAO)"), t_("|Z|"), t_("arg(Z)"), t_("|Kr|"), t_("arg(Kr)"), 
 				t_("|TFS|"), t_("arg(TFS)")};
 
+
+const UVector<String> Hydro::paramsToProcess = {"A", "B", "M", "Fex", "Stiff", "Stiff_add", "Dlin", "Dquad", "Mean Drift", "QTF_+", "QTF_-"};
 	    
 const UVector<Hydro::BEMInfo> Hydro::bemInfo = {
     {WAMIT,           "Wamit .out",               true,   "*.out",   true,  true,  true,  "789", true , true},
@@ -49,7 +51,8 @@ const UVector<Hydro::BEMInfo> Hydro::bemInfo = {
     {BEMROSETTA_H5,   "BEMRosetta .h5",           false,  "*.h5",    false, false, false, "", 	 false, true},
     {AKSELOS_NPZ,     "Akselos .npz",             false,  "*.npz",   false, false, false, "", 	 false, false},
     {HYDROSTAR,       "HydroStar .hsg",           false,  "*.npz",   true,  true,  true,  "79",  true, true},
-    //{DIFFRAC,       "Diffrac .xml",             false,  "",   	 true,  false, false, "789", false, true},
+    {DIFFRAC,         "Diffrac .xml",             false,  "*.xml", 	 true,  true,  false, "9",   false, true},
+    {DIFFRAC_H5,      "Diffrac .h5m",             false,  "*.h5m", 	 false, false, false, "",    false, false},
 #ifdef PLATFORM_WIN32	
     {ORCAWAVE_OWR,    "OrcaWave .owr",            false,  "*.owr",   false, false, false, "", 	 false, true},
 #endif

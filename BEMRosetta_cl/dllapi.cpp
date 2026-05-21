@@ -12,7 +12,7 @@ Function<bool(String, int, const Time &, int64)> Orca::WhenWave = [](String str,
 	if (IsNull(et))
 		BEM::Print("\nCompleted 0%"); 
 	else
-		BEM::Print(F("\nCompleted %d%%. Et: %", perc, et) + F(". Duration: %s", SecondsToString(duration, 0, false, false, true, false, false))); 
+		BEM::Print(F("\nCompleted %d%%. Et: %", perc, et) + F(". Duration: %s", SecondsToString((double)duration, 0, false, false, true, false, false))); 
 	return 0;
 };
 
@@ -1002,7 +1002,7 @@ void BMR_Bem_SaveCase(const char *folder, const char *solver, bool x0z, bool y0z
 			throw Exc(F(t_("Format %s has more than one option: %s"), solver, ret));
 		}
 
-		int iqtfType = -1;
+		int iqtfType = 0;
 		String sqtfType = ToLower(qtfType);
 		if (sqtfType.Find("control") >= 0 || sqtfType.Find("middle") >= 0)
 			iqtfType = 7;

@@ -3049,12 +3049,12 @@ void Wamit::Save_cfg(String fileName, int qtfType, bool lid, bool autoIrregular,
  		out << " MAXITT   = 50\n";
  	if (qtfType > 0)
 		out << " I2ND     = 1\n";
- 	if (qtfType == 9)	// Pressure integration
+ 	if (qtfType == 9 && !ishigh)	// Pressure integration and low
  		out << " ISOR     = 1\n";
- 	else if (qtfType == 7) {	// Control surface
+ 	else if (qtfType == 7) {		// Control surface
  		out << " ICTRSURF = 1\n";
  		out << " IALTCSF  = 1\n";
- 	} else if (qtfType == 8)	// Momentum
+ 	} else if (qtfType == 8)		// Momentum
  		out << " ICTRSURF = 2\n";
  		
  	if (!isUnderWater) {
@@ -3097,9 +3097,24 @@ void Wamit::Save_pt2(String fileName) const {
 	
 	out << "% BEMRosetta generated .pt2 file\n";
 	for (int ib = 0; ib < dt.Nb; ++ib)
-		out << "-1 1                (IRAD2   IDIF2)   Skip second-order radiation, compute second-order diffraction (required for QTFs)\n"
-	 		   "1 1 1 1 1 1         (MODES)           All 6 DOF modes active for 2nd-order\n";
- 	out << "2 2                 (IXSUM   IXDIF)   Sum and difference-frequency QTFs (2 = use 2nd-order periods from POT file)";
+		out << "-1 1                 (IRAD2   IDIF2)   Skip second-order radiation, compute second-order diffraction (required for QTFs)\n"
+	 		   "1 1 1 1 1 1          (MODES)           All 6 DOF modes active for 2nd-order\n";
+ 	out << "1 1                  (IXSUM   IXDIF)   Sum and difference-frequency QTFs (2 = use 2nd-order periods from POT file)\n";
+ 	
+ 	// Probably this could be simplified, as HydroStar and Aqwa do...
+ 	String fhset;
+ 	for (int ifr1 = 0; ifr1 < dt.Nf; ++ifr1) {
+ 		for (int ifr2 = 0; ifr2 < dt.Nf; ++ifr2) {	
+ 			fhset << F("%2<d %2<d %3<d             IPER JPER NBETA\n", ifr1+1, ifr2+1, dt.Nh*dt.Nh);
+ 			for (int ih1 = 0; ih1 < dt.Nh; ++ih1) 
+ 				for (int ih2 = 0; ih2 < dt.Nh; ++ih2) 
+ 					fhset << F("%2<d %2<d\n", ih1+1, ih2+1);
+ 		}
+ 	}
+ 	out << F("%20<d NSUMP\n", dt.Nf*dt.Nf);
+ 	out << fhset;
+ 	out << F("%20<d NDIFP\n", dt.Nf*dt.Nf);
+ 	out << fhset;
 }
 
 void Wamit::Save_fdf(String fileName, double rpart) const {
@@ -3171,7 +3186,7 @@ void Wamit::SaveCase(String folder, int numThreads, bool x0z, bool y0z, UVector<
 				iscs2 = !cs[ib].dt.spline.IsEmpty();
 				if (!iscs2) {
 					Surface lid;
-					lid.GetDryPanels(cs[ib].dt.mesh, true, Null, Null);
+					lid.GetPanels(cs[ib].dt.mesh, false, true, false, Null, Null);
 					cs[ib].dt.under.Append(lid);
 					cs[ib].dt.under.Translate(-dt.msh[ib].dt.c0.x, -dt.msh[ib].dt.c0.y, -dt.msh[ib].dt.c0.z);	
 					cs[ib].dt.mesh = clone(cs[ib].dt.under);

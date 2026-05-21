@@ -542,6 +542,8 @@ void Hydro::LoadCase(String fileName, Function <bool(String, int)> Status) {
 		ret = static_cast<BemioH5&>(*this).Load(fileName, Status);
 	else if (F(".out.1.2.3.3sc.3fk.hst.4.6p.7.8.9.12d.12s.cfg.frc.pot.mmx.wam").Find(ext) >= 0)
 		ret = static_cast<Wamit&>(*this).Load(fileName, false, 0, Status);
+	else if (ext == ".xml")
+		ret = static_cast<Diffrac&>(*this).Load(fileName);
 	else
 		ret = t_("Unknown BEM input format");
 	
@@ -579,7 +581,7 @@ void Hydro::SaveCase(String folder, BEM_FMT solver, bool x0z, bool y0z,
 		for (int ib = 0; ib < dt.Nb; ++ib) {
 			if (dt.lids[ib].dt.mesh.IsEmpty()) {
 				if (dt.msh[ib].dt.spline.IsEmpty()) {
-					dt.lids[ib].dt.mesh.GetDryPanels(dt.msh[ib].dt.mesh, true, Null, Null);
+					dt.lids[ib].dt.mesh.GetPanels(dt.msh[ib].dt.mesh, false, true, false, Null, Null);
 					dt.lids[ib].AfterLoad(Bem().rho, Bem().g, false, true);
 					dt.msh[ib].dt.mesh = pick(dt.msh[ib].dt.under);
 					dt.msh[ib].AfterLoad(Bem().rho, Bem().g, false, true);
@@ -620,6 +622,8 @@ void Hydro::SaveCase(String folder, BEM_FMT solver, bool x0z, bool y0z,
 			static_cast<const Wamit &>(*this).SaveCase(folder, numThreads, x0z, y0z, listPoints, irregular, autoIrregular, qtfType, autoQTF);
 		else if (solver == Hydro::HYDROSTAR)
 			static_cast<const HydroStar &>(*this).SaveCase(folder, withPotentials, x0z, y0z, listDOF, irregular, autoIrregular, qtfType, autoQTF);
+		else if (solver == Hydro::DIFFRAC)
+			static_cast<const Diffrac &>(*this).SaveCase(folder, numThreads, withPotentials, x0z, y0z, listDOF, irregular, qtfType);
 		else if (solver == Hydro::BEMROSETTA_H5) {
 			dt.solver = BEMROSETTA_H5;
 			if (!dt.msh.IsEmpty() && !IsLoadedPotsIncBMR()) 
@@ -2298,6 +2302,64 @@ void Hydro::MultiplyDOF(double factor, const UVector<int> &_idDOF, bool a, bool 
 		throw Exc(F(t_("Problem reseting DOF: '%s'\n%s"), error));
 }
 
+void Hydro::Mix(UArray<Hydro> &hydros, const UVector<int> &cases, const UVector<int> &bodies) {
+	ASSERT(cases.size() == bodies.size());
+	
+	Hydro &hy = Last(hydros);
+
+	hy.dt.Nb = cases.size()/Hydro::P_NUM;
+	hy.dt.name = "Mix";
+	hy.dt.dimen = true;
+		
+	Upp::Index<int> casesCompact;
+	for (int c : cases)
+		if (!IsNull(c))
+			casesCompact.FindAdd(c);
+	
+	auto Set = [=](auto &var, auto val, int icase, String what) {
+		if (IsNull(var))
+			var = val;
+		else if (var != val)
+			throw Exc(F(t_("Parameter %s from case %d does not match with previous values"), what, icase));
+	};
+	for (int i = 0; i < casesCompact.size(); ++i) {
+		int icase = casesCompact[i];
+		Hydro::Data &dt = hydros[icase].dt;
+		
+		Set(hy.dt.g, dt.g, icase, "gravity");
+	    Set(hy.dt.h, dt.h, icase, "height");
+	    Set(hy.dt.rho, dt.rho, icase, "density");
+	    Set(hy.dt.len, dt.len, icase, "len");
+	    Set(hy.dt.Nf, dt.Nf, icase, "Nf");
+	    Set(hy.dt.Nh, dt.Nh, icase, "Nhead");
+		Set(hy.dt.x_w, dt.x_w, icase, "x waves");
+		Set(hy.dt.y_w, dt.y_w, icase, "y waves");	
+		if (hy.dt.head.IsEmpty())
+			hy.dt.head = clone(dt.head);
+		else if (!CompareDelta(hy.dt.head, dt.head, 0.01))
+			throw Exc(F(t_("Wave headings from case %d does not match with previous values"), icase));
+		if (hy.dt.w.IsEmpty())
+			hy.dt.w = clone(dt.w);
+		else if (!CompareDelta(hy.dt.w, dt.w, 0.01))
+			throw Exc(F(t_("Wave frequencies from case %d does not match with previous values"), icase));
+		if (hy.dt.mdhead.size() == 0)
+			hy.dt.mdhead = clone(dt.mdhead);
+		else if (!CompareDelta(hy.dt.mdhead, dt.mdhead, 0.01))
+			throw Exc(F(t_("Mean drift wave headings from case %d does not match with previous values"), icase));
+		if (hy.dt.qw.size() == 0)
+			hy.dt.qw = clone(dt.qw);
+		else if (!CompareDelta(hy.dt.qw, dt.qw, 0.01))
+			throw Exc(F(t_("QTF wave frequencies from case %d does not match with previous values"), icase));		
+		if (hy.dt.qhead.size() == 0)
+			hy.dt.qhead = clone(dt.qhead);
+		else if (!CompareDelta(hy.dt.qhead, dt.qhead, 0.01))
+			throw Exc(F(t_("QTF wave headings from case %d does not match with previous values"), icase));		
+	}
+    
+
+
+}
+
 void Hydro::SwapDOF(int ib1, int ib2) {
 	for (int idof = 0; idof < 6; ++idof)	
 		SwapDOF(ib1, idof, ib2, idof);	
@@ -3233,6 +3295,8 @@ int Hydro::LoadHydro(UArray<Hydro> &hydros, String file, Function <bool(String, 
 			ret = static_cast<Hydro&>(hy).LoadSerialization(file);
 		else if (ext == ".h5") 
 			ret = static_cast<BemioH5&>(hy).Load(file, Status);
+		else if (ext == ".h5m") 
+			ret = static_cast<Diffrac&>(hy).Load(file, Status);
 		else if (ext == ".owd") 
 			ret = t_("OrcaWAVE .owd binary format is not supported.\nHowever OrcaFLEX .yml is supported.\nTo get it, load the .owd file in OrcaFlex and save it as .yml");
 		else 

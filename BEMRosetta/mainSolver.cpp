@@ -80,8 +80,7 @@ MainSolverBody::MainSolverBody() {
 		Body::Load(mesh, ~fileMesh, Bem().rho, Bem().g, Null, Null, false);
 		if (mesh.dt.spline.IsEmpty()) {
 			Surface lid0;	
-			lid0.GetDryPanels(mesh.dt.mesh, true, Null, Null);
-			if (!lid0.IsEmpty()) {
+			if (lid0.GetPanels(mesh.dt.mesh, false, true, false, Null, Null)) {
 				lid.dt.mesh = pick(lid0);	
 				lid.AfterLoad(Bem().rho, Bem().g, false, true);
 				mesh.dt.mesh = pick(mesh.dt.under);

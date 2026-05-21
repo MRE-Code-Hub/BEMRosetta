@@ -117,6 +117,15 @@ Hydro &BEM::Duplicate(int id) {
 	return hy;
 }
 
+Hydro &BEM::Mix(const UVector<int> &cases, const UVector<int> &bodies) {
+	Hydro &hy = hydros.Add();
+	
+	hy.Mix(hydros, cases, bodies);
+	
+	hy.IncrementIdCount();
+	return hy;
+}
+
 Hydro &BEM::Average(UVector<int> &ids) {
 	Hydro &hy = hydros.Add();
 	hy.Average(hydros, ids);

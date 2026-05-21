@@ -45,7 +45,7 @@ struct DiffracData {
 	    UVector<double> waveDir;
 	    double waterDepth = 0.0;
 	    Current current;
-	    String irregFreqSuppression;
+	    String irregFreqSuppression;		// "DAMPING LID"
 	    double irregFreqDamping = 0.0;
 	    UVector<double> waveFreq;
 	    bool exportKinematicsVTK = false;	// The user may specify the 'exportKinematicsVTK' (boolean) switch. If &quot;true&quot; is selected, then velocities and pressures on hull panels are exported to a vtk file, for visualisation with paraview. If &quot;false&quot; is selected then velocities and pressures are not exported! (default value = true)
@@ -58,24 +58,46 @@ struct DiffracData {
 			    bool allowNegativeAddedDamping = false;
 			    double value = 0;
 			};
+			struct SpringDampingMatrix {
+				String fileName;
+				bool isEarthFixed = true;
+				String unit = "N";
+			};
 		    int index = 0;
 		    UArray<BodyTotalDamping> total;
+		    SpringDampingMatrix springMatrix, dampingMatrix;
+		};
+		struct SpringDampingMatrix {
+			String fileName;
+			bool isEarthFixed = true;
+			String unit = "N";
 		};
 		bool runProgram = true;
 	    UArray<BodyInputDamping> inputs;
+	    SpringDampingMatrix springMatrix, dampingMatrix;
 	};
 	struct ParDRIFTP {
 		bool runProgram = true;
-	    bool exportContribution[5] = {false,false,false,false,false};
+	    bool exportContribution[5] = {false, false, false, false, false};
 	    double minFrequency = 0;
 	    double maxFrequency = 0;
 	    int numberOfWavefrequencyDiagonals = 0;	// The user must specify the number of diagonals of the wave drift force matrix that have to be computed
+	    int numberOfWavedirectionDiagonals;
+	    bool waveDirInteraction = false;
+	};
+	struct ParSUMFREQUENCYWAVEFORCES {
+		bool runProgram = true;
+	    bool exportContribution[5] = {false, false, false, false, false};
+	    double minFrequency = 0;
+	    double maxFrequency = 0;
+	    int numberOfWavefrequencyDiagonals = 0;	// The user must specify the number of diagonals of the wave drift force matrix that have to be computed
+	    int numberOfWavedirectionDiagonals;
 	    bool waveDirInteraction = false;
 	};
 	struct ParEXPORT {
 		struct HydFileExport {
 		    bool exportOn = true;
-		    bool exportQTF[5] = {false,false,false,false,false};
+		    bool exportQTF[5] = {false, false, false, false, false};
 		    int numberOfWavefrequencyDiagonals = 0;
 		};
 		struct RelWaveHeight {
@@ -134,9 +156,10 @@ struct DiffracData {
     ParDIFFRAC parDIFFRAC;
     ParDBRESP parDBRESP;
     ParDRIFTP parDRIFTP;
+    ParSUMFREQUENCYWAVEFORCES parSUMFREQUENCYWAVEFORCES;
     ParEXPORT parEXPORT;
     UArray<Body> bodies;
-    int projectNumber;
+    int projectNumber = 9999;
     int nProcs = 1;
     
     void LoadXML(const String &xml);

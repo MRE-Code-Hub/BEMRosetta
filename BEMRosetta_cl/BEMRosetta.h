@@ -309,7 +309,7 @@ public:
 	    HAMS_MREL, WADAM_WAMIT, NEMOH, NEMOHv115, NEMOHv3,
 	    SEAFEM_NEMOH, AQWA, AQWA_QTF, AQWA_DAT, FOAMM,
 	    DIODORE, ORCAFLEX_YML, CAPYTAINE, HYDROSTAR_OUT, CAPY_NC,
-	    ORCAWAVE_YML, CAPYTAINE_PY, BEMROSETTA_H5, AKSELOS_NPZ, HYDROSTAR,
+	    ORCAWAVE_YML, CAPYTAINE_PY, BEMROSETTA_H5, AKSELOS_NPZ, HYDROSTAR, DIFFRAC, DIFFRAC_H5,
 	#ifdef PLATFORM_WIN32
 	    ORCAWAVE_OWR,
 	#endif
@@ -360,46 +360,6 @@ public:
 	virtual ~Hydro() noexcept {}	
 	
 	const char *GetCodeStr()	const {return Hydro::bemInfo[dt.solver].str;}
-	/*	switch (dt.solver) {
-		case WAMIT: 		return t_("Wamit");
-		case WAMIT_1_3: 	return t_("Wamit.1.2.3");
-		case WAMIT_1_3_RAD:	return t_("Wamit.1.2.3");
-		case MATLAB:		return t_("Matlab.mat");
-		case WADAM_WAMIT: 	return t_("Wadam.Wamit");
-		case FAST_WAMIT: 	return t_("Wamit.FAST");
-		case NEMOH:			return t_("Nemoh v2");
-		case NEMOHv115:		return t_("Nemoh v115");
-		case NEMOHv3:		return t_("Nemoh v3");
-		case SEAFEM_NEMOH:	return t_("SeaFEM.Nemoh");
-		case AQWA:			return t_("AQWA");
-		case AQWA_QTF:		return t_("AQWA.qtf");
-		case AQWA_DAT:		return t_("AQWA.dat");
-		case FOAMM:			return t_("FOAMM");
-		case BEMROSETTA:	return t_("BEMRosetta");
-		case BEMROSETTA_H5: return t_("BEMRosetta.h5");
-		case DIODORE:		return t_("Diodore");
-		case ORCAFLEX_YML:	return t_("OrcaFlex.yml");
-		case CSV_MAT:		return t_("CSV.mat");
-		case CSV_TABLE:		return t_("CSV.tab");
-		case BEMIO_H5:		return t_("BEMIO.h5");
-		case HAMS_WAMIT:	return t_("HAMS.1.2.3");
-		case HAMS:			return t_("HAMS");
-		case HAMS_MREL:		return t_("HAMS.MREL");
-		case CAPYTAINE:		return t_("Capytaine");
-		case HYDROSTAR_OUT:	return t_("Hydrostar.out");
-		case CAPY_NC:		return t_("Capytaine.nc");
-		case ORCAWAVE_YML:	return t_("OrcaWave.yml");
-		case CAPYTAINE_PY:	return t_("Capytaine.py");
-		case AKSELOS_NPZ:	return t_("Akselos.npz");
-		case HYDROSTAR:		return t_("HydroStar");
-#ifdef PLATFORM_WIN32	
-		case ORCAWAVE_OWR: 	return t_("OrcaWave.owr");
-#endif
-		case UNKNOWN:		return t_("Unknown");         
-		case NUMBEM:		NEVER();
-		}
-		return t_("Unknown");
-	}*/
 	
 	const char *GetCodeStrAbr() const {
 		switch (dt.solver) {
@@ -433,6 +393,8 @@ public:
 		case CAPYTAINE_PY:	return t_("Capy.py");
 		case AKSELOS_NPZ:	return t_("Aks.npz");
 		case HYDROSTAR:		return t_("Hyd");
+		case DIFFRAC:		return t_("DIFF.xml");
+		case DIFFRAC_H5:	return t_("DIFF.h5m");
 #ifdef PLATFORM_WIN32	
 		case ORCAWAVE_OWR: 	return t_("ORC.owr");
 #endif
@@ -1037,21 +999,21 @@ public:
 	bool IsLoadedA_P   (int i = 0, int j = 0)const {return dt.A_P.size() > i && dt.A_P[i].size() > j && dt.A_P[i][j].size() > 0 && IsNum(dt.A_P[i][j][0]);}
 	bool IsLoadedAinf  (int i = 0, int j = 0)const {return dt.Ainf.rows() > i && dt.Ainf.cols() > j && IsNum(dt.Ainf(i, j));}
 	bool IsLoadedA0	   (int i = 0, int j = 0)const {return dt.A0.rows() > i && dt.A0.cols() > j && IsNum(dt.A0(i, j));}
-	bool IsLoadedDlin(int ib = 0, int idf = 0, int jdf = 0)	const {return dt.msh[ib].dt.Dlin.size() > 0 && dt.msh[ib].dt.Dlin.rows() > idf && dt.msh[ib].dt.Dlin.cols() > jdf && IsNum(dt.msh[ib].dt.Dlin(idf, jdf));}
-	bool IsLoadedDquad(int ib = 0, int idf = 0, int jdf = 0)const {return dt.msh[ib].dt.Dquad.size() > 0 && dt.msh[ib].dt.Dquad.rows() > idf && dt.msh[ib].dt.Dquad.cols() > jdf && IsNum(dt.msh[ib].dt.Dquad(idf, jdf));}
+	bool IsLoadedDlin(int ib = 0, int idf = 0, int jdf = 0)	const {return dt.Nb > ib && dt.msh[ib].dt.Dlin.size() > 0 && dt.msh[ib].dt.Dlin.rows() > idf && dt.msh[ib].dt.Dlin.cols() > jdf && IsNum(dt.msh[ib].dt.Dlin(idf, jdf));}
+	bool IsLoadedDquad(int ib = 0, int idf = 0, int jdf = 0)const {return dt.Nb > ib && dt.msh[ib].dt.Dquad.size() > 0 && dt.msh[ib].dt.Dquad.rows() > idf && dt.msh[ib].dt.Dquad.cols() > jdf && IsNum(dt.msh[ib].dt.Dquad(idf, jdf));}
 	bool IsLoadedB	   (int i = 0, int j = 0)const {return dt.B.size() > i && dt.B[i].size() > j && dt.B[i][j].size() > 0 && IsNum(dt.B[i][j][0]);}
 	bool IsLoadedB_H   (int i = 0, int j = 0)const {return dt.B_H.size() > i && dt.B_H[i].size() > j && dt.B_H[i][j].size() > 0 && IsNum(dt.B_H[i][j][0]);}
 	bool IsLoadedB_P   (int i = 0, int j = 0)const {return dt.B_P.size() > i && dt.B_P[i].size() > j && dt.B_P[i][j].size() > 0 && IsNum(dt.B_P[i][j][0]);}
-	bool IsLoadedC(int ib = 0, int idf = 0, int jdf = 0)	const {return dt.msh[ib].dt.C.size() > 0 && dt.msh[ib].dt.C.rows() > idf && dt.msh[ib].dt.C.cols() > jdf && IsNum(dt.msh[ib].dt.C(idf, jdf));}
+	bool IsLoadedC(int ib = 0, int idf = 0, int jdf = 0)	const {return dt.Nb > ib && dt.msh[ib].dt.C.size() > 0 && dt.msh[ib].dt.C.rows() > idf && dt.msh[ib].dt.C.cols() > jdf && IsNum(dt.msh[ib].dt.C(idf, jdf));}
 	bool IsLoadedAnyC() const {
 		for (int ib = 0; ib < dt.Nb; ++ib)
 			if (dt.msh[ib].dt.C.size() < 36)
 				return false;
 		return true;
 	}
-	bool IsLoadedCMoor(int ib = 0, int idf = 0, int jdf = 0)const {return dt.msh[ib].dt.Cmoor.size() > 0 && dt.msh[ib].dt.Cmoor.rows() > idf && dt.msh[ib].dt.Cmoor.cols() > jdf && IsNum(dt.msh[ib].dt.Cmoor(idf, jdf));}
-	bool IsLoadedCAdd(int ib = 0, int idf = 0, int jdf = 0) const {return dt.msh[ib].dt.Cadd.size() > 0 && dt.msh[ib].dt.Cadd.rows() > idf && dt.msh[ib].dt.Cadd.cols() > jdf && IsNum(dt.msh[ib].dt.Cadd(idf, jdf));}
-	bool IsLoadedM(int ib = 0, int idf = 0, int jdf = 0)	const {return dt.msh[ib].dt.M.size() > 0 && dt.msh[ib].dt.M.rows() > idf && dt.msh[ib].dt.M.cols() > jdf && IsNum(dt.msh[ib].dt.M(idf, jdf));}
+	bool IsLoadedCMoor(int ib = 0, int idf = 0, int jdf = 0)const {return dt.Nb > ib && dt.msh[ib].dt.Cmoor.size() > 0 && dt.msh[ib].dt.Cmoor.rows() > idf && dt.msh[ib].dt.Cmoor.cols() > jdf && IsNum(dt.msh[ib].dt.Cmoor(idf, jdf));}
+	bool IsLoadedCAdd(int ib = 0, int idf = 0, int jdf = 0) const {return dt.Nb > ib && dt.msh[ib].dt.Cadd.size() > 0 && dt.msh[ib].dt.Cadd.rows() > idf && dt.msh[ib].dt.Cadd.cols() > jdf && IsNum(dt.msh[ib].dt.Cadd(idf, jdf));}
+	bool IsLoadedM(int ib = 0, int idf = 0, int jdf = 0)	const {return dt.Nb > ib && dt.msh[ib].dt.M.size() > 0 && dt.msh[ib].dt.M.rows() > idf && dt.msh[ib].dt.M.cols() > jdf && IsNum(dt.msh[ib].dt.M(idf, jdf));}
 	bool IsLoadedAnyM() const {
 		for (int ib = 0; ib < dt.Nb; ++ib)
 			if (dt.msh[ib].dt.M.size() < 36)
@@ -1225,6 +1187,8 @@ public:
 	void SwapDOF(int ib1, int idof1, int ib2, int idof2);
 	void SwapDOF(int ib1, int ib2);
 	
+	static void Mix(UArray<Hydro> &hydros, const UVector<int> & cases, const UVector<int> & bodies);
+	
 	void SymmetrizeDOF();
 	
 	void FillFrequencyGapsABForces(bool zero, int maxFreq);
@@ -1371,6 +1335,11 @@ public:
 	} 
 	
 	void LoadListPointsTemp(UVector<bool> &idPanels, MatrixXi &idPanelsM, UVector<int> &idFs, UVector<int> &idRest);
+	
+	enum ParamsToProcess {
+		P_A, P_B, P_M, P_Fex, P_Stiff, P_Stiff_add, P_Dlin, P_Dquad, P_MeanDrift, P_QTF_SUM, P_QTF_DIF, P_NUM};
+	// "A", "B", "M", "Fex", "Stiff", "Stiff_add", "Dlin", "Dquad", "Mean Drift", "QTF_+",   "QTF_-"};
+	static const UVector<String> paramsToProcess;
 	
 protected:
 	// For OpenFAST
@@ -1833,6 +1802,19 @@ private:
 	}
 };
 
+class Diffrac : public Hydro {
+public:
+	Diffrac() {}
+	virtual ~Diffrac() noexcept {}
+	
+	String LoadCase(String file);
+	void SaveCase(String folder, int numThreads, bool withPotentials, bool x0z, bool y0z, 
+				const UVector<bool> &listDOF, bool irregular, int qtfType) const;
+	
+	String Load(String file, double rho = Null);
+	void Load_H5();
+};
+
 class BemioH5 : public Hydro {
 public:
 	BemioH5() {}
@@ -1958,6 +1940,7 @@ public:
 	void ResetForces(int id, Hydro::FORCE force, bool forceMD, Hydro::FORCE forceQtf);										
 	void MultiplyDOF(int id, double factor, const UVector<int> &idDOF, bool a, bool b, bool diag, bool f, bool md, bool qtf, bool C);
 	void SwapDOF(int id, int ib1, int idof1, int ib2, int idof2);
+	Hydro &Mix(const UVector<int> &cases, const UVector<int> &bodies);
 	
 	void RemoveHydro(int id);
 		
@@ -2000,7 +1983,7 @@ public:
 	void UpdateHeadAllMD();
 	
 	//const String bemFilesExt = ".1 .2 .3 .hst .4 .12s .12d .frc .pot .out .in .cal .tec .inf .ah1 .lis .qtf .mat .dat .bem .fst .yml";
-	const String bstFilesExt = ".in .out .fst .1 .2 .3 .3sc .3fk .hst .4 .5p .12s .12d .frc .pot .mmx .cal .tec .inf .ah1 .lis .qtf .hdb .mat .dat .bemr .yml .h5 .nc .mqt"	// Priority
+	const String bstFilesExt = ".in .out .fst .1 .2 .3 .3sc .3fk .hst .4 .5p .12s .12d .frc .pot .mmx .cal .tec .inf .ah1 .lis .qtf .hdb .mat .dat .bemr .yml .h5 .h5m .nc .mqt"	// Priority
 #ifdef PLATFORM_WIN32
 		" .owr"
 #endif

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright 2020 - 2023, the BEMRosetta author and contributors
+// Copyright 2020 - 2026, the BEMRosetta author and contributors
 #include "BEMRosetta.h"
 #include "BEMRosetta_int.h"
 #include <Hdf5/hdf5.h>
@@ -20,7 +20,7 @@ String BemioH5::Load(String file, double) {
 		
 		Load_H5();
 		
-		if (IsNull(dt.Nb))
+		if (dt.Nb == 0)
 			return t_("No data found");
 	
 	} catch (Exc e) {
@@ -38,6 +38,9 @@ void BemioH5::Load_H5() {
 	
 	for (dt.Nb = 0; hfile.ExistGroup(F("body%d", dt.Nb+1)); dt.Nb++) 
 		;	
+	
+	if (dt.Nb == 0)
+		return;
 	
 	{
 		hfile.ChangeGroup("bem_data");

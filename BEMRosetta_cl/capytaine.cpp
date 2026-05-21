@@ -675,12 +675,7 @@ void Nemoh::SaveCase_Capy(String folder, int numThreads, bool withPotentials, bo
         		"\n";
 
 	}
-	spy <<	"if Version(cpt.__version__) > Version('2.3'):\n"
-			"    ds.coords['body'] = [body.name for body in list_of_bodies]\n"
-			"    ds['rotation_center'] = (['body', 'space_coordinate'], [body.rotation_center for body in list_of_bodies])\n"
-			"    ds['center_of_buoyancy'] = (['body', 'space_coordinate'], [body.center_of_buoyancy for body in list_of_bodies])\n"
-			"    ds['center_of_mass'] = (['body', 'space_coordinate'], [body.center_of_mass for body in list_of_bodies])\n"
-			"else:\n"
+	spy <<	"if Version(cpt.__version__) < Version('3'):\n"
 			"    ds.coords['rigid_body_component'] = [body.name for body in list_of_bodies]\n"
 			"    ds['rotation_center'] = (['rigid_body_component', 'point_coordinates'], [body.rotation_center for body in list_of_bodies])\n"
 			"    ds['center_of_buoyancy'] = (['rigid_body_component', 'point_coordinates'], [body.center_of_buoyancy for body in list_of_bodies])\n"

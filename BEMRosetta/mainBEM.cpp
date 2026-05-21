@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright 2020 - 2022, the BEMRosetta author and contributors
+// Copyright 2020 - 2026, the BEMRosetta author and contributors
 #include <CtrlLib/CtrlLib.h>
 #include <Controls4U/Controls4U.h>
 #include <ScatterCtrl/ScatterCtrl.h>
@@ -134,6 +134,8 @@ void MainBEM::Init() {
 		menuProcess.maxFreq <<= 150;
 	
 	menuProcess.butQTF_MD << THISBACK(OnQTF_MD);
+	
+	menuProcess.butMixWizard << THISBACK(OnMixWizard);
 	
 	CtrlLayout(menuProcess2);
 	
@@ -1693,6 +1695,117 @@ void MainBEM::OnQTF_MD() {
 	} catch (Exc e) {
 		BEM::PrintError(DeQtfLf(e));
 	}	
+}
+
+void MixWizard::Init() {
+	CtrlLayout(*this, "Window title");
+	
+	cases.Clear();
+	bodies.Clear();
+	
+	a.AddColumn("Body");
+	a.AddColumn("Parameter");
+	a.AddColumn("Case");
+	a.AddColumn("Body");
+	a.MultiSelect();
+	a.WhenDropLine = [=](int line, PasteClip& d) {DnDInsert(line, d);};
+	a.WhenDrag = [=] {
+		rowA.Clear();
+		for (int r = 0; r < a.GetCount(); r++)
+			if(a.IsSel(r))
+				rowA << r;
+		a.DoDragAndDrop(InternalClip(a, "array_a"), a.GetDragSample());	
+	};
+	
+	nBodies <<= 2;
+	
+	b.AddColumn("Case");
+	b.AddColumn("Body");
+	b.MultiSelect();
+	b.WhenDrag = [=] {b.DoDragAndDrop(InternalClip(b, "array_b"), b.GetDragSample());};
+
+	nBodies.WhenAction = [=] {
+		if (IsNull(nBodies))
+			return;
+	
+		a.SetCount(int(~nBodies)*Hydro::paramsToProcess.size());
+		int row = 0;
+		for (int ib = 0; ib < int(~nBodies); ++ib)
+			for (const String &p : Hydro::paramsToProcess) {
+				a.Set(row,   0, ib+1);
+				a.Set(row++, 1, p);
+			}
+	};
+	nBodies.WhenAction();
+	
+	for (int icase = 0; icase < bodiesPerCase.size(); ++icase)		
+		for (int ib = 0; ib < bodiesPerCase[icase]; ++ib)
+			b.Add(icase+1, ib+1);
+	
+	butCreate.WhenAction = [=] {OnCreate();};
+	butCancel.WhenAction = [=] {Close();};
+	
+	Sizeable();
+}
+
+void MixWizard::DnDInsert(int row, PasteClip& d) {
+	if(AcceptInternal<ArrayCtrl>(d, "array_b")) {
+		int isel = 0;
+		for (int r = 0; r < b.GetCount(); r++)
+			if(b.IsSel(r)) {
+				int icase = b.Get(r, 0);
+				int ib = b.Get(r, 1);
+				a.Set(row + isel, 2, icase);		
+				a.Set(row + isel, 3, ib);	
+				isel++;
+			}
+		a.SetCursor(row+isel-1);
+	}
+	if(AcceptInternal<ArrayCtrl>(d, "array_a")) {
+		for (int r = 0; r < rowA.size(); ++r) {
+			int icase = a.Get(rowA[r], 2);
+			int ib = a.Get(rowA[r], 3);
+			a.Set(row, 2, icase);		
+			a.Set(row++, 3, ib);	
+		}
+		a.SetCursor(row-1);
+	}
+}
+
+void MixWizard::OnCreate() {
+	for (int r = 0; r < a.GetCount(); ++r) {
+		int icase = a.Get(r, 2);
+		int ib = a.Get(r, 3);
+		cases << icase;
+		bodies << ib;
+	}
+	Close();
+}
+
+void MainBEM::OnMixWizard() {
+	try {
+		MixWizard mix;
+		
+		mix.bodiesPerCase.SetCount(Bem().hydros.size());
+		for (int i = 0; i < Bem().hydros.size(); ++i)
+			mix.bodiesPerCase[i] = Bem().hydros[i].dt.Nb;
+		
+		mix.Init();
+		mix.Run();
+
+		if (mix.cases.IsEmpty())
+			return;
+
+		Hydro &hy = Bem().Mix(mix.cases, mix.bodies);
+		
+		mainSummary.Clear();
+		
+		ArrayModel_Add(listLoaded, hy.GetCodeStr(), hy.dt.name, hy.dt.file, hy.dt.GetId());
+
+		AfterBEM();
+	} catch (Exc e) {
+		BEM::PrintError(DeQtfLf(e));
+	}
 }
 
 void MainBEM::OnDeleteBodies() {

@@ -93,6 +93,22 @@ String TabText(const TabCtrl &tab);
 #include <CtrlCore/lay.h>
 
 
+class MixWizard : public WithMixWizard<TopWindow> {
+public:
+	MixWizard() {};
+	void Init();
+	
+	UVector<int> bodiesPerCase;
+	UVector<int> cases, bodies;
+	
+private:
+	UVector<int> rowA;
+	
+	void DnDInsert(int row, PasteClip& d);
+	void OnCreate();
+};
+
+
 class CompareParameters : public WithCompareParameters<StaticRect> {
 public:
 	void Init(ScatterDraw& scatter, SplitterButton &psplitter);
@@ -1712,6 +1728,7 @@ public:
 	void OnABForcesZero();
 	void OnQTFZero();
 	void OnQTF_MD();
+	void OnMixWizard();
 	
 	void AfterBEM();
 		
