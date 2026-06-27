@@ -148,7 +148,7 @@ struct DiffracData {
 	    String meshFn;
 	    String name;
 	    Point3D translation = Point3D(0,0,0);
-	    double rotation = 0.0;
+	    double rotation = 0;
 	    UArray<MassElement> massElements;
 	};
     ParVTKDIF parVTKDIF;

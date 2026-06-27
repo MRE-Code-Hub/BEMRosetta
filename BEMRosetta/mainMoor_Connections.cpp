@@ -97,7 +97,7 @@ void MainMoor_Connections::Load() {
 	
 	for (int id = 0; id < mooring.connections.size(); ++id) {
 		const auto &con = mooring.connections[id];
-		array.Add(con.name, con.where, con.x, con.y, con.z);
+		array.Add(con.name, con.where, con.p.x, con.p.y, con.p.z);
 	}
 	LoadDrop();
 	if (mooring.connections.size() > 0)
@@ -111,9 +111,9 @@ void MainMoor_Connections::Save() {
 	for (int id = 0; id < mooring.connections.size(); ++id) {
 		mooring.connections[id].name = array.Get(id, 0);
 		mooring.connections[id].where = array.Get(id, 1);
-		mooring.connections[id].x = ScanDouble(array.Get(id, 2).ToString());
-		mooring.connections[id].y = ScanDouble(array.Get(id, 3).ToString());
-		mooring.connections[id].z = ScanDouble(array.Get(id, 4).ToString());
+		mooring.connections[id].p.x = ScanDouble(array.Get(id, 2).ToString());
+		mooring.connections[id].p.y = ScanDouble(array.Get(id, 3).ToString());
+		mooring.connections[id].p.z = ScanDouble(array.Get(id, 4).ToString());
 	}
 }
 

@@ -96,7 +96,7 @@ void Main::Init(bool firstTime) {
 	if (parameter.IsEmpty()) {
 		mainSolver.Init();		EM().Log("Init Nemoh");
 		//tab.Add(mainNemohScroll.AddPaneV(mainSolver).SizePos(), tabTexts[TAB_NEMOH]);
-		tab.Add(mainSolver.SizePos(), t_("BEM Solver"));
+		tab.Add(mainSolver.SizePos(), t_("Solver Input"));
 	}
 	
 	if (parameter.IsEmpty() || parameter == "bem") {
@@ -561,6 +561,9 @@ GUI_APP_MAIN {
 	} catch (Exc e) {
 		Exclamation(e);
 		return;
+	} catch (...) {
+		Exclamation(t_("Unknown error"));
+		return;	
 	}
 	bool firstTime = !errorJson.IsEmpty();
 	if (firstTime) {
@@ -600,7 +603,7 @@ GUI_APP_MAIN {
 
 
 	Ctrl::SetAppName(t_("Hydrodynamic coefficients viewer and converter"));
-	Ctrl::GlobalBackPaint();
+	//Ctrl::GlobalBackPaint();
 
 	try {
 		Main main;

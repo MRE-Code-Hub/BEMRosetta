@@ -24,7 +24,7 @@ void MainTools::Init() {
 	tab.Add(mooringInfo.SizePos(), t_("Chain & Rope calculator"));
 #ifdef PLATFORM_WIN32
 	orcaLicense.Init();
-	tab.Add(orcaLicense.SizePos(), t_("OrcaWave license"));
+	tab.Add(orcaLicense.SizePos(), t_("OrcaFlex license"));
 #endif 
 };
 
@@ -378,16 +378,16 @@ void Tools_OrcaLicense::Init() {
 		int aval = orca.IsAvailable();
 		
 		if (aval == Orca::NOT_INSTALLED) {
-			PromptOK(t_("OrcaWave is not installed"));
+			PromptOK(t_("OrcaFlex is not installed"));
 			return;
 		} else if (aval ==	Orca::NOT_AVAILABLE) 
-			PromptOK(t_("OrcaWave is not available"));
+			PromptOK(t_("OrcaFlex is not available"));
 		
 		String label = butCapture.GetLabel();
 		
 		if (label == t_("Check license")) {
 			butCapture.SetLabel(t_("Stop checking"));
-			labCapture.SetText(t_("Checking if an OrcaWave license is available ..."));
+			labCapture.SetText(t_("Checking if an OrcaFlex license is available ..."));
 			SetTimeCallback(int(-60*1000), [&]() {CheckAvailable();}, 12);
 			CheckAvailable();
 		} else if (label == t_("Stop checking")) {
@@ -404,10 +404,10 @@ void Tools_OrcaLicense::CheckAvailable() {
 	if (orca.IsAvailable() == Orca::AVAILABLE) {
 		KillTimeCallback(12);
 		butCapture.SetLabel(t_("Check license"));
-		labCapture.SetText(F(t_("OrcaWave is now available (%`)"), GetSysTime()));
-		PromptOK(t_("OrcaWave is now available"));
+		labCapture.SetText(F(t_("OrcaFlex is now available (%`)"), GetSysTime()));
+		PromptOK(t_("OrcaFlex is now available"));
 	} else // Orca::NOT_AVAILABLE) 
-		labCapture.SetText(t_("Checking if an OrcaWave license is available ..."));
+		labCapture.SetText(t_("Checking if an OrcaFlex license is available ..."));
 }
 
 

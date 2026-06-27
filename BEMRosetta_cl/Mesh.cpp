@@ -26,11 +26,13 @@ const UVector<Body::MeshInfo> Body::meshInfo = {
     {Body::CAPY_NC,       "Capytaine .nc",   false,  "*.nc"},
     {Body::OBJ,           "Wavefront .obj",  false,  "*.obj"},
     {Body::ORCAFLEX_YML,  "OrcaFlex .yml",   false,  "*.yml"},
+    {Body::ORCAWAVE_YML,  "OrcaWave .yml",   false,  "*.yml"},
     {Body::OPENFAST_FST,  "OpenFAST .fst",   false,  "*.fst"},
     {Body::GEOMVIEW_OFF,  "GEOMVIEW .off",   true,   "*.off"},
     {Body::BEM_MESH,      "BEMRosetta .mesh",true,   "*.mesh"},
     {Body::MOORING_MESH,  "Mooring",         false,  "*.out*"},
     {Body::VTK_ASCII,     "VTK ASCII.vtk",   true,   "*.vtk"},
+    {Body::VTK_ASCII_4,   "VTK ASCII 4.vtk", true,   "*.vtk"},
     {Body::UNKNOWN,       "Unknown",         false,  "*.*"}
 };
 
@@ -240,6 +242,8 @@ String Body::Load(UArray<Body> &mesh, String file, double rho, double g, bool cl
 		ret = DiodoreBody::LoadDat(mesh, file); 
 	else if (ext == ".gdf" || ext == ".idf" || ext == ".csf") 
 		ret = WamitBody::LoadGdf(mesh, file, y0z, x0z, g); 
+	else if (ext == ".fdf") 
+		ret = WamitBody::Load_fdf(mesh, file);
 	else if (ext == ".pot")
 		ret = WamitBody::LoadPot(mesh, file, y0z, x0z, g); 
 	else if (ext == ".pnl") 
@@ -411,7 +415,7 @@ void Body::SaveAs(const UArray<Body> &meshes, const UVector<String> &fileNames, 
 		if (meshType == UNDERWATER) 
 			surf = clone(meshes[ib].dt.under);
 		else {
-			if (type == AQWA_DAT) {		// Appends dry and wet sides. This way there are no panels between dry and wet side
+			if (type == AQWA_DAT && (!irregular || autoIrregular)) {// Appends dry and wet sides. This way there are no panels between dry and wet side
 				surf = clone(meshes[ib].dt.under);	// First the wet
 				Surface dry;	
 				dry.CutZ(meshes[ib].dt.mesh, 1);
@@ -492,7 +496,9 @@ void Body::SaveAs(const UArray<Body> &meshes, const UVector<String> &fileNames, 
 			else if (type == MIKE21_GRD)		
 				SaveGRD(fileNames[ib], surfs[ib], g, symX, symY);
 			else if (type == VTK_ASCII)		
-				SaveVTK(fileNames[ib], surfs[ib], symX);
+				SaveVTK(fileNames[ib], surfs[ib], symX, false);
+			else if (type == VTK_ASCII_4)		
+				SaveVTK(fileNames[ib], surfs[ib], symX, true);
 			else if (type == GEOMVIEW_OFF) 
 				OffBody::SaveOff(fileNames[ib], surfs[ib]);
 			else

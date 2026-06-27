@@ -286,6 +286,15 @@ void MainSolver::Init() {
 			idQTF = save.dropQTF.GetKey(idQTF);
 		save.dropQTF.Clear();
 		save.dropQTF.Add(0, t_("No"));
+		for (int i = 0; i < strlen(Hydro::bemInfo[solver].md); ++i) {
+			char c = Hydro::bemInfo[solver].md[i];
+			if (c == '7')
+				save.dropQTF.Add(17, t_("Mean drift. Control surface/Middle field"));
+			else if (c == '8')
+				save.dropQTF.Add(18, t_("Mean drift. Momentum conservation/Far field"));
+			else if (c == '9')
+				save.dropQTF.Add(19, t_("Mean drift. Pressure integration/Near field"));
+		}
 		for (int i = 0; i < strlen(Hydro::bemInfo[solver].qtf); ++i) {
 			char c = Hydro::bemInfo[solver].qtf[i];
 			if (c == '7')
@@ -381,6 +390,7 @@ void MainSolver::Jsonize(JsonIO &json) {
 		("dropSolver", dropSolverVal)
 		("height", gen.height)
 		("opInfinite", gen.opInfinite)
+		("gen_name", gen.name)
 		("gen_g", gen.g)
 		("gen_rho", gen.rho)
 		("gen_opFreq", gen.opFreq)
@@ -429,9 +439,9 @@ void MainSolver::Load(String file) {
 	WaitCursor waitcursor;
 	
 	tmp_hy.LoadCase(file, [&](String str, int _pos) {
-			progress.SetText(str); 
-			progress.SetPos(_pos); 
-			return !progress.Canceled();
+		progress.SetText(str); 
+		progress.SetPos(_pos); 
+		return !progress.Canceled();
 	});
 	
 	gen.opInfinite <<= (tmp_hy.dt.h < 0);
@@ -449,6 +459,7 @@ void MainSolver::Load(String file) {
 		bodies.array.Add(bscroll.AddPane(b, true, true).SizePos(), tmp_b.dt.name);
 		
 		b.name <<= tmp_b.dt.name;
+		b.name.WhenAction = THISBACK1(OnName, bodiesEach.size()-1);
 		b.fileMesh <<= tmp_b.dt.fileName;
 		if (tmp_hy.dt.lids.size() > ib)
 			b.fileLid <<= tmp_hy.dt.lids[ib].dt.fileName;  
@@ -499,6 +510,7 @@ void MainSolver::Load(String file) {
 	if (save.dropSolver.HasKey(tmp_hy.dt.solver))
 		save.dropSolver.SetData(tmp_hy.dt.solver);
 	
+	gen.name <<= tmp_hy.dt.name;
 	gen.g <<= tmp_hy.dt.g;
 	gen.rho <<= tmp_hy.dt.rho;
 	
@@ -599,6 +611,7 @@ bool MainSolver::CopyHydro(Hydro &hy) {
 	for (int i = 0; i < gen.listHead.number; ++i)
 		hy.dt.head[i] = ScanDouble(~gen.listHead.grid.Get(i, 0));
 	
+	hy.dt.name = ~gen.name;
 	hy.dt.g = ~gen.g;
 	hy.dt.rho = ~gen.rho;
 	
@@ -675,9 +688,11 @@ void MainSolver::arrayOnAdd() {
 	String name = F("Body %d", bodiesEach.size());
 	bodies.array.Add(bscroll.AddPane(b, true, true).SizePos(), name);
 	b.name <<= name;
-	b.name.WhenAction = [&]() {
-		bodies.array.grid.Set(bodies.array.GetCursor(), 0, ~b.name);
-	};
+	b.name.WhenAction = THISBACK1(OnName, bodiesEach.size()-1);
+}
+
+void MainSolver::OnName(int id) {
+	bodies.array.grid.Set(bodies.array.GetCursor(), 0, ~bodiesEach[id].name);
 }
 
 void MainSolver::arrayOnDuplicate() {
@@ -697,6 +712,7 @@ void MainSolver::arrayOnDuplicate() {
 	CtrlLayout(last);
 	
 	last.name <<= ~sel.name;
+	last.name.WhenAction = THISBACK1(OnName, bodiesEach.size()-1);
 	last.x_0 <<= ~sel.x_0;
 	last.y_0 <<= ~sel.y_0;
 	last.z_0 <<= ~sel.z_0;
@@ -831,7 +847,7 @@ bool MainSolver::OnSave() {
 			nThreads = save.numThreads;
 				
 		hy.SaveCase(folder, solver, ~save.symY, ~save.symX,
-					~save.opIrregular, ~save.opAutoIrregular && ~save.opIrregular, ~save.dropQTF, ~save.opAutoQTF,
+					~save.opIrregular, ~save.opAutoIrregular && ~save.opIrregular, ~save.dropQTF, ~save.opAutoQTF && (int(~save.dropQTF)%10 == 7),
 					~save.opIncludeBin, nSplit, nThreads,
 					~save.withPotentials, ~save.withMesh, listDOF, listPoints);
 	} catch (Exc e) {

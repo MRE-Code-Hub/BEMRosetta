@@ -135,7 +135,11 @@ void MainBEM::Init() {
 	
 	menuProcess.butQTF_MD << THISBACK(OnQTF_MD);
 	
-	menuProcess.butMixWizard << THISBACK(OnMixWizard);
+#ifdef flagDEBUG
+		menuProcess.butMixWizard << THISBACK(OnMixWizard);
+#else
+		menuProcess.Hide();
+#endif
 	
 	CtrlLayout(menuProcess2);
 	

@@ -3102,19 +3102,24 @@ void Wamit::Save_pt2(String fileName) const {
  	out << "1 1                  (IXSUM   IXDIF)   Sum and difference-frequency QTFs (2 = use 2nd-order periods from POT file)\n";
  	
  	// Probably this could be simplified, as HydroStar and Aqwa do...
- 	String fhset;
+ 	String sumset, diffset;
  	for (int ifr1 = 0; ifr1 < dt.Nf; ++ifr1) {
  		for (int ifr2 = 0; ifr2 < dt.Nf; ++ifr2) {	
- 			fhset << F("%2<d %2<d %3<d             IPER JPER NBETA\n", ifr1+1, ifr2+1, dt.Nh*dt.Nh);
+ 			sumset << F("%2<d %2<d %3<d             IPER JPER NBETA\n", ifr1+1, ifr2+1, dt.Nh*dt.Nh);
+ 			if (ifr2 <= ifr1)
+ 				diffset << F("%2<d %2<d %3<d             IPER JPER NBETA\n", ifr1+1, ifr2+1, dt.Nh*dt.Nh);
  			for (int ih1 = 0; ih1 < dt.Nh; ++ih1) 
- 				for (int ih2 = 0; ih2 < dt.Nh; ++ih2) 
- 					fhset << F("%2<d %2<d\n", ih1+1, ih2+1);
+ 				for (int ih2 = 0; ih2 < dt.Nh; ++ih2) {
+ 					sumset << F("%2<d %2<d\n", ih1+1, ih2+1);
+ 					if (ifr2 <= ifr1)
+ 						sumset << F("%2<d %2<d\n", ih1+1, ih2+1);
+ 				}
  		}
  	}
  	out << F("%20<d NSUMP\n", dt.Nf*dt.Nf);
- 	out << fhset;
+ 	out << sumset;
  	out << F("%20<d NDIFP\n", dt.Nf*dt.Nf);
- 	out << fhset;
+ 	out << diffset;
 }
 
 void Wamit::Save_fdf(String fileName, double rpart) const {
@@ -3150,6 +3155,9 @@ void Wamit::Save_Fnames(String folder, int qtfType) const {
 
 void Wamit::SaveCase(String folder, int numThreads, bool x0z, bool y0z, UVector<Point3D> &listPoints, 
 				bool irregular, bool autoIrregular, int qtfType, bool autoQTF) const {
+	bool onlyMeanDrift = qtfType > 10;					// INTEGRATE THIS !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	qtfType %= 10;
+	
 	if (dt.msh.IsEmpty())
 		throw Exc(t_("No body set"));
 	if (!DirectoryCreateX(folder))

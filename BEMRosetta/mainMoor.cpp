@@ -457,15 +457,15 @@ void MainMoor::FullRefresh(bool fit) {
 		if (id >= 0) {
 			dx = mooring.vessels[id].dx;
 			dy = mooring.vessels[id].dy;
-			if (con.z <= -mooring.depth + 0.1)
+			if (con.p.z <= -mooring.depth + 0.1)
 				col = ::Color(153, 76, 0);		// Anchor
 			else
 				col = ::Color(67, 120, 120);
 		} else
 			col = ::Color(153, 76, 0);			// Anchor
-		left.view.PaintCube(con.x + dx, con.y + dy, con.z, 2, col);
+		left.view.PaintCube(con.p.x + dx, con.p.y + dy, con.p.z, 2, col);
 		if (left.opConnection)
-			left.view.PaintText(con.x + dx, con.y + dy, con.z, F("[3@(153.76.0) %s]", con.name));
+			left.view.PaintText(con.p.x + dx, con.p.y + dy, con.p.z, F("[3@(153.76.0) %s]", con.name));
 	}
 	// Closest
 	if (right.showMin && !IsNull(cl.distance)) {

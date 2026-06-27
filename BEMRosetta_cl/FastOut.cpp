@@ -956,7 +956,7 @@ void FastOut::SetNextTime(double time) {
 }
 
 int FastOut::GetIdTime(double time) const {
-	if (IsNull(time) || time < 0)
+	if (IsNull(time))		// || time < 0)
 		return Null;	
 	if (dataOut.size() == 0)
 		return Null;	
@@ -1074,8 +1074,14 @@ void Calc(const UArray<FastOut> &dataFast, const ParameterMetrics &params0, Para
 			}
 			if (names.IsEmpty() && !FindParam(p0.name)) {
 				EvalExprX exp;
-		    	exp.WhenGetVariableId = [&](const char *name) 		{return fast.GetParameterX(name);};
-				PostFixOperation op = exp.Get(GetEquation(p0.name));
+		    	exp.WhenGetVariableId = [&](const char *name) {
+		    		String nam(name);
+		    		nam.Replace("$", "\\");
+		    		return fast.GetParameterX(nam);
+		    	};
+		    	String name = p0.name;
+		    	name.Replace("\\", "$");
+				PostFixOperation op = exp.Get(GetEquation(name));
 				if (!op.IsEmpty()) {
 					ParameterMetric &param = params.params.Add();
 					param = clone(p0);
@@ -1094,7 +1100,11 @@ void Calc(const UArray<FastOut> &dataFast, const ParameterMetrics &params0, Para
 				
 		EvalExprX exp;
 		int idtime = 0;
-    	exp.WhenGetVariableId = [&](const char *name) 	{return fast.GetParameterX(name);};
+    	exp.WhenGetVariableId = [&](const char *name) {
+    		String nam(name);
+		    nam.Replace("$", "\\");
+    		return fast.GetParameterX(nam);
+    	};
     	exp.WhenGetVariableValue = [&](int id) 			{return fast.GetVal(idtime, id);};
     
 		int idBegin = fast.GetIdTime(start);
@@ -1136,7 +1146,9 @@ void Calc(const UArray<FastOut> &dataFast, const ParameterMetrics &params0, Para
 			int id = fast.GetParameterX(param.name);
 			if (id < 0) {
 				try {
-					PostFixOperation op = exp.Get(GetEquation(param.name));
+					String name = param.name;
+		    		name.Replace("\\", "$");
+					PostFixOperation op = exp.Get(GetEquation(name));
 					data.resize(idEnd - idBegin);
 					for (int i = 0; i < data.size(); ++i) {
 						idtime = i + idBegin;

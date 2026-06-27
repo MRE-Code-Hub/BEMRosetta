@@ -275,13 +275,13 @@ void ShowHelp() {
 	
 	Cout() << "\n" << t_("-rf -runflex <from> <to>        # OrcaFlex calculation with <from>, results in <to>");
 	Cout() << "\n" << t_("-ls -loadSim <sim>              # Load OrcaFlex simulation in <sim>");
-	Cout() << "\n" << t_("-rs -refsystem <cx> <cy> <cz>   # Sets the coordinates of the reference system for outputs");
+	Cout() << "\n" << t_("-rs -refsystem <cx> <cy> <cz>   # Sets the Vessel/6DBuoy/Environment reference system for next params");
 	Cout() << "\n" << t_("-lp -loadParam <param>          # Load param to be saved");
 	Cout() << "\n" << t_("-cp -clearParams                # Clear parameters loaded");
 	Cout() << "\n" << t_("-save -c  -convert <file>       # Export the loaded params of the actual model to output file (csv)");
 	Cout() << "\n" << t_("-p  -print <params>             # Prints model data in a row");
 	Cout() << "\n" << t_("              numthread         # Number of threads");
-	Cout() << "\n" << t_("     <params> list              # Parameter names");
+	Cout() << "\n" << t_("              list              # Parameter names");
 	Cout() << "\n" << t_("              <param> data      # <param> data series");
 	Cout() << "\n" << t_("              <param> avg       # <param> avg");
 	Cout() << "\n" << t_("              <param> max       # <param> max");
@@ -319,7 +319,7 @@ bool BMR_Data::ConsoleMain(const UVector<String>& _command, bool gui) {
 			Cout() << "\n" << t_("Command argument list is empty");
 			ShowHelp();
 		} else {
-			String nextcommands = "general";
+			String nextcommands = "general", commandBeforeGeneral;
 			
 			for (int ic = 0; ic < command.size(); ic++) {
 				String param = ToLower(command[ic]);
@@ -387,6 +387,7 @@ bool BMR_Data::ConsoleMain(const UVector<String>& _command, bool gui) {
 								throw Exc(F("-paramfile file '%s' not found", paramfile));
 							ChangeCurrentDirectory(GetFileFolder(paramfile));
 							command.Insert(ic+1 , pick(GetCommandLineParams(strfile)));
+							nextcommands = commandBeforeGeneral;
 						} else if (param == "-params") {
 							CheckIfAvailableArg(command, ic+1, "-params");
 							
@@ -1030,6 +1031,7 @@ bool BMR_Data::ConsoleMain(const UVector<String>& _command, bool gui) {
 							lastPrint = middle7 ? "true" : "false"; 
 							Cout() << lastPrint;
 						} else if (mainCommands.Find(param) >= 0) {
+							commandBeforeGeneral = nextcommands;
 							nextcommands = "general";
 							ic--;				
 						} else 
@@ -1276,6 +1278,7 @@ bool BMR_Data::ConsoleMain(const UVector<String>& _command, bool gui) {
 									throw Exc(F(t_("Unknown argument '%s'"), command[ic]));
 							}
 						} else if (mainCommands.Find(param) >= 0) {
+							commandBeforeGeneral = nextcommands;
 							nextcommands = "general";
 							ic--;
 						} else 
@@ -1352,6 +1355,7 @@ bool BMR_Data::ConsoleMain(const UVector<String>& _command, bool gui) {
 								}
 							}
 						} else if (mainCommands.Find(param) >= 0) {
+							commandBeforeGeneral = nextcommands;
 							nextcommands = "general";
 							ic--;							
 						} else
@@ -1587,6 +1591,7 @@ bool BMR_Data::ConsoleMain(const UVector<String>& _command, bool gui) {
 									throw Exc(F(t_("Unknown parameter '%s'"), pparam));
 							}
 						} else if (mainCommands.Find(param) >= 0) {
+							commandBeforeGeneral = nextcommands;
 							nextcommands = "general";
 							ic--;							
 						} else 
@@ -1699,7 +1704,7 @@ bool BMR_Data::ConsoleMain(const UVector<String>& _command, bool gui) {
 							if (!IsEmpty(errorStr))
 								throw Exc(F(t_("Problem saving results to %s: %s"), to, errorStr));
 							else
-								BEM::Print("\n" + F(t_("Diffraction results saved to %s"), to));		
+								BEM::Print("\n" + F(t_("Diffraction results saved at %s"), to));		
 						} else if (param == "-rf" || param == "-runflex") {
 							CheckIfAvailableArg(command, ++ic, "-runflex from");
 							String from = command[ic];
@@ -1863,7 +1868,14 @@ bool BMR_Data::ConsoleMain(const UVector<String>& _command, bool gui) {
 										lastPrint = FormatDouble(d.maxCoeff());
 									else if (command[ic] == "min") 
 										lastPrint = FormatDouble(d.minCoeff());
-									else  
+									else if (command[ic] == "maxrange") 
+										lastPrint = FormatDouble(d.maxCoeff() - d.minCoeff());
+									else if (command[ic] == "weibull") {
+										CheckIfAvailableArg(command, ++ic, "-weibull");
+										double percentile = ScanDouble(command[ic]);
+										EigenVector v(d, 0, 1);
+										lastPrint = FormatDouble(v.PercentileWeibullValY(percentile));
+									} else  
 										throw Exc(F(t_("Parameter '%s' not found in -p"), command[ic]));
 									Cout() << lastPrint;
 								}
@@ -1882,6 +1894,7 @@ bool BMR_Data::ConsoleMain(const UVector<String>& _command, bool gui) {
 							
 							BEM::Print("\n" + F(t_("Orca .dll '%s' loaded"), orca.GetDLLPath()));
 						} else if (mainCommands.Find(param) >= 0) {
+							commandBeforeGeneral = nextcommands;
 							nextcommands = "general";
 							ic--;							
 						} else 

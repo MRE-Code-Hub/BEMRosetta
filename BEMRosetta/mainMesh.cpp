@@ -600,6 +600,11 @@ void MainBody::Init() {
 			tabMenuMove.Text("");
 			tabMenuStability.Text("");
 		}
+		
+		mainTab.GetItem(mainTab.Find(mainStiffness)).Enable(mainStiffness.Load(Bem().surfs, ArrayModel_IndexsBody(listLoaded), true));
+		mainTab.GetItem(mainTab.Find(mainM)).Enable(mainM.Load(Bem().surfs, ArrayModel_IndexsBody(listLoaded), false));
+		mainTab.GetItem(mainTab.Find(mainStiffness2)).Enable(mainStiffness2.Load(Bem().surfs, ArrayModel_IndexsBody(listLoaded), true));
+		mainTab.GetItem(mainTab.Find(mainGZ)).Enable(Bem().surfs.size() > 0);
 	};
 	mainTab.WhenSet();
 	
@@ -874,7 +879,8 @@ void MainBody::OnOpt() {
 							break;
 	case Body::BEM_MESH:	menuOpen.symX.Disable();
 							menuOpen.symY.Disable();
-	case Body::VTK_ASCII:	menuOpen.symX.Disable();
+	case Body::VTK_ASCII:
+	case Body::VTK_ASCII_4:	menuOpen.symX.Disable();
 							menuOpen.symY.Disable();
 	default:				break;		
 	}
@@ -2283,7 +2289,7 @@ void MainBody::UpdateButtons() {
 			
 			menuPlot.showSkewed.Enable(!msh.dt.mesh.skewed.IsEmpty());
 			menuPlot.showFissure.Enable(!msh.dt.mesh.segTo1panel.IsEmpty());
-			menuPlot.showWaterLevel.Enable(!msh.dt.mesh.segWaterlevel.IsEmpty());
+			menuPlot.showWaterLevel.Enable(!msh.dt.under.segWaterlevel.IsEmpty());
 			menuPlot.showMultiPan.Enable(!msh.dt.mesh.segTo3panel.IsEmpty());
 			menuPlot.showOpenings.Enable(!msh.dt.boundaries.IsEmpty());
 		}
@@ -2562,7 +2568,7 @@ void MainSummaryBody::Report(const UArray<Body> &surfs, int id) {
 	array.Set(row, 0, t_("Healing"));			array.Set(row++, col, healing ? t_("Yes") : t_("No"));
 
 	array.Set(row, 0, t_("# Segments"));		array.Set(row++, col, !healing ? Null : msh.dt.mesh.segments.size());
-	array.Set(row, 0, t_("# Seg Waterplane"));	array.Set(row++, col, !healing ? Null : msh.dt.mesh.segWaterlevel.size());
+	array.Set(row, 0, t_("# Seg Waterplane"));	array.Set(row++, col, !healing ? Null : msh.dt.under.segWaterlevel.size());
 	array.Set(row, 0, t_("# Seg leak"));		array.Set(row++, col, !healing ? Null : msh.dt.mesh.segTo1panel.size());
 	array.Set(row, 0, t_("# Seg 3 panels"));	array.Set(row++, col, !healing ? Null : msh.dt.mesh.segTo3panel.size());
 
@@ -2687,7 +2693,7 @@ void MainView::FullRefresh(MainBody &mainBody) {
 			if (menuPlot.showFissure)
 				surf.PaintSegments(msh.dt.mesh.segTo1panel, LtRed());
 			if (menuPlot.showWaterLevel)
-				surf.PaintSegments(msh.dt.mesh.segWaterlevel, LtBlue(), SurfaceView::OVER_ALL);
+				surf.PaintSegments(msh.dt.under.segWaterlevel, LtBlue(), SurfaceView::OVER_ALL);
 			if (menuPlot.showMultiPan)
 				surf.PaintSegments(msh.dt.mesh.segTo3panel, Black());
 			

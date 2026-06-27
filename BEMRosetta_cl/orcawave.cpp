@@ -2,6 +2,9 @@
 // Copyright 2020 - 2025, the BEMRosetta author and contributors
 #include "BEMRosetta.h"
 #include "BEMRosetta_int.h"
+#include <STEM4U/SeaWaves.h>
+#include <Surface/Surface.h>
+#include <Surface/Translation.h>
 #include "orca.h"
 
 String OrcaWave::Load(String _file, double) {
@@ -19,7 +22,9 @@ String OrcaWave::Load(String _file, double) {
 			Load_OWR();
 		else
 #endif
-			Load_OF_YML();
+			if (!Load_OF_YML())
+				if (!Load_OW_YML())
+					return t_("Unknown yml format");
 
 		if (IsNull(dt.Nb))
 			return t_("No data found");
@@ -47,7 +52,232 @@ void OrcaWave::Load_OWR() {
 }
 #endif
 
-void OrcaWave::Load_OF_YML() {
+bool OrcaWave::Load_OW_YML() {
+	String fileName = ForceExtSafer(dt.file, ".yml");
+	FileInLine in(fileName);
+	if (!in.IsOpen()) 
+		throw Exc(in.Str() + "\n" + t_("File not found or blocked"));
+	
+	dt.solver = Hydro::ORCAWAVE_YML;
+
+	dt.dimen = true;
+	
+	dt.x_w = dt.y_w = 0;
+	
+	dt.Nf = dt.Nh = Null;
+	dt.Nb = 0; 
+	
+	dt.g = 9.80665;		// Default value used when SI units
+
+	int ib = -1;
+	Point3D bodyMeshPosition;
+	bool originCM = false;
+	double mass;
+	Matrix3d inertia;
+	String bodyname;
+	
+	OrcaFactors factor;	
+
+	YmlParser fy(in);
+
+	FileInLine::Pos fpos = in.GetPos();
+	
+	auto GetMsh = [&]()->Body& {
+		if (ib < 0)
+			throw Exc(in.Str() + "\n" + t_("BodyName not found"));
+		return dt.msh[ib];
+	};
+	
+	while(fy.GetLine()) {
+		if (fy.FirstIs("UnitsSystem")) {
+			if (fy.GetVal() == "SI") {
+				factor.mass = factor.force = 1000;
+				factor.len = 1;	
+			} else if (fy.GetVal() == "User") 
+				;
+			else
+				throw Exc(in.Str() + "\n" + F(t_("Only SI and User units are supported. Read '%s'"), fy.GetVal()));
+		} else if (fy.FirstIs("LengthUnits")) {
+			factor.len = FactorLen(fy.GetVal());
+			factor.Update();
+		} else if (fy.FirstIs("MassUnits")) {
+			factor.mass = FactorMass(fy.GetVal());
+			factor.Update();
+		} else if (fy.FirstIs("ForceUnits")) {
+			factor.force = FactorForce(fy.GetVal());
+			factor.Update();
+		} else if (fy.FirstIs("g")) 
+			dt.g = fy.GetDouble()*factor.len;
+		else if (fy.FirstIs("WaterDepth")) 
+			dt.h = fy.GetDouble()*factor.len;
+		else if (fy.FirstIs("WaterDensity")) 
+			dt.rho = fy.GetDouble()*factor.len;
+		else if (fy.FirstIs("PeriodOrFrequency")) {
+			const UVector<UVector<String>> &mat = fy.GetMatrix();
+			dt.w.SetCount(mat.size());
+			for (int i = 0; i < mat.size(); ++i)
+				dt.w[i] = ScanDouble(mat[i][0]);
+			dt.Nf = mat.size();		
+		} else if (fy.FirstIs("WaveHeading")) {
+			const UVector<UVector<String>> &mat = fy.GetMatrix();
+			dt.head.SetCount(mat.size());
+			for (int i = 0; i < mat.size(); ++i)
+				dt.head[i] = ScanDouble(mat[i][0]);
+			dt.Nh = mat.size();		
+		} else if (fy.FirstIs("Bodies")) {
+			if (fy.FirstIs("BodyName")) {
+				if (fy.Index() != dt.Nb)
+					throw Exc(in.Str() + "\n" + t_("Failed body count"));
+				ib = dt.Nb;
+				dt.msh.SetCount(dt.Nb+1);
+				bodyname = fy.GetVal();
+				dt.Nb++;
+			} else if (fy.FirstIs("BodyCentreOfMass")) {
+				UVector<double> line = fy.GetVectorDouble();
+				if (line.size() != 3)
+					throw Exc(in.Str() + "\n" + t_("Incorrect BodyCentreOfMass"));
+						
+				GetMsh().dt.cg.x = line[0]*factor.len;
+				GetMsh().dt.cg.y = line[1]*factor.len;
+				GetMsh().dt.cg.z = line[2]*factor.len;
+				
+				if (IsNull(GetMsh().dt.c0))
+					GetMsh().dt.c0 = clone(GetMsh().dt.cg);
+			} else if (fy.FirstIs("BodyMeshPosition")) {
+				UVector<double> line = fy.GetVectorDouble();
+				if (line.size() != 3)
+					throw Exc(in.Str() + "\n" + t_("Incorrect BodyMeshPosition"));
+						
+				bodyMeshPosition.x = line[0]*factor.len;
+				bodyMeshPosition.y = line[1]*factor.len;
+				bodyMeshPosition.z = line[2]*factor.len;
+			} else if (fy.FirstIs("BodyMeshFileName")) {
+				String meshname = fy.GetVal();
+				if (!FileExists(meshname))
+					meshname = AFX(GetFileFolder(fileName), meshname);
+			
+				Body::Load(GetMsh(), meshname, dt.rho, dt.g, Null, Null, false);
+				GetMsh().dt.fileName = meshname;
+				GetMsh().dt.name = bodyname;
+				GetMsh().Translate(bodyMeshPosition);
+				GetMsh().AfterLoad(dt.rho, dt.g, false, true);
+			} else if (fy.FirstIs("BodyMeshSymmetry")) {	
+				String sym = fy.GetVal(); 
+				dt.symY = sym.Find("xz") >= 0;
+				dt.symX = sym.Find("yz") >= 0;
+			} else if (fy.FirstIs("BodyUserOrigin")) {
+				UVector<double> line = fy.GetVectorDouble();
+				if (line.size() != 3)
+					throw Exc(in.Str() + "\n" + t_("Incorrect BodyUserOrigin"));
+				
+				GetMsh().dt.c0.x = line[0]*factor.len;
+				GetMsh().dt.c0.y = line[1]*factor.len;
+				GetMsh().dt.c0.z = line[2]*factor.len;	
+			} else if (fy.FirstMatch("BodyExternalStiffnessMatrixx*")) {
+				UVector<UVector<double>> mat = fy.GetMatrixDouble(true);
+				if (mat.size() != 6)
+					throw Exc(in.Str() + "\n" + t_("Incorrect BodyExternalStiffnessMatrix"));
+				GetMsh().dt.Cadd.resize(6, 6);
+				
+				for (int r = 0; r < 6; ++r) {
+					if (mat[r].size() != 6)
+						throw Exc(in.Str() + "\n" + t_("Incorrect BodyExternalStiffnessMatrix"));
+					for (int c = 0; c < 6; ++c) 
+						GetMsh().dt.Cadd(r, c) = mat[r][c]*factor.C(r, c);
+				}
+			} else if (fy.FirstMatch("BodyExternalDampingMatrixx*")) {
+				UVector<UVector<double>> mat = fy.GetMatrixDouble(true);
+				if (mat.size() != 6)
+					throw Exc(in.Str() + "\n" + t_("Incorrect BodyExternalDampingMatrix"));
+				GetMsh().dt.Dlin.resize(6, 6);
+				
+				for (int r = 0; r < 6; ++r) {
+					if (mat[r].size() != 6)
+						throw Exc(in.Str() + "\n" + t_("Incorrect BodyExternalDampingMatrix"));
+					for (int c = 0; c < 6; ++c) 
+						GetMsh().dt.Dlin(r, c) = mat[r][c]*factor.Dlin(r, c);
+				}
+			} else if (fy.FirstIs("BodyMass"))
+				mass = fy.GetDouble();
+			else if (fy.FirstMatch("BodyInertiaTensorRx*")) {
+				UVector<UVector<double>> mat = fy.GetMatrixDouble(true);
+				if (mat.size() != 3)
+					throw Exc(in.Str() + "\n" + t_("Incorrect BodyInertiaTensorR"));
+				for (int r = 0; r < 3; ++r) {
+					if (mat[r].size() != 3)
+						throw Exc(in.Str() + "\n" + t_("Incorrect BodyInertiaTensorR"));
+					for (int c = 0; c < 3; ++c) 
+						inertia(r, c) = mat[r][c]*factor.M(r, c);
+				}
+			} else if (fy.FirstIs("BodyInertiaTensorOriginType")) {	
+				String origin = fy.GetVal();
+				if (origin == "User specified")
+					;	// Wait for BodyInertiaTensorUserOrigin
+				else if (origin == "Centre of mass") {
+					GetMsh().dt.M = Eigen::MatrixXd::Zero(6, 6);
+					GetMsh().dt.M(0, 0) = GetMsh().dt.M(1, 1) = GetMsh().dt.M(2, 2) = fy.GetDouble();
+					GetMsh().dt.M.block(3, 3, 3, 3) = inertia;
+				} else if (origin == "Body origin") {
+					Surface::TranslateInertia33(inertia, mass, GetMsh().dt.cg, GetMsh().dt.c0, GetMsh().dt.cg);	// Assemble inertia at CG
+					GetMsh().dt.M = Eigen::MatrixXd::Zero(6, 6);
+					GetMsh().dt.M(0, 0) = GetMsh().dt.M(1, 1) = GetMsh().dt.M(2, 2) = mass;
+					GetMsh().dt.M.block(3, 3, 3, 3) = inertia;	
+					Surface::TranslateInertia66(GetMsh().dt.M, GetMsh().dt.cg, GetMsh().dt.cg, GetMsh().dt.c0);	// Translate it to C0
+				} else
+					throw Exc(in.Str() + "\n" + t_("Incorrect BodyInertiaTensorOriginType"));
+			} else if (fy.FirstIs("BodyInertiaTensorUserOrigin")) {
+				UVector<double> line = fy.GetVectorDouble();
+				if (line.size() != 3)
+					throw Exc(in.Str() + "\n" + t_("Incorrect BodyInertiaTensorUserOrigin"));
+				Vector3d ref(line[0], line[1], line[2]);
+				Surface::TranslateInertia33(inertia, mass, GetMsh().dt.cg, ref, GetMsh().dt.cg);				// Assemble inertia at CG
+				GetMsh().dt.M = Eigen::MatrixXd::Zero(6, 6);
+				GetMsh().dt.M(0, 0) = GetMsh().dt.M(1, 1) = GetMsh().dt.M(2, 2) = mass;
+				GetMsh().dt.M.block(3, 3, 3, 3) = inertia;	
+				Surface::TranslateInertia66(GetMsh().dt.M, GetMsh().dt.cg, GetMsh().dt.cg, GetMsh().dt.c0);	// Translate it to C0
+			} else if (fy.FirstIs("BodyExternalDampingMatrixOriginType")) {	
+				String origin = fy.GetVal();
+				if (origin == "User specified")
+					;	// Wait for BodyExternalDampingMatrixUserOrigin
+				else if (origin == "Centre of mass")
+					TranslateMatrix6(GetMsh().dt.Dlin, Eigen::Vector3d(GetMsh().dt.cg), Eigen::Vector3d(GetMsh().dt.c0));	
+				else if (origin == "Body origin")
+					;
+				else
+					throw Exc(in.Str() + "\n" + t_("Incorrect BodyExternalDampingMatrixOriginType"));
+			} else if (fy.FirstIs("BodyExternalDampingMatrixUserOrigin")) {
+				UVector<double> line = fy.GetVectorDouble();
+				if (line.size() != 3)
+					throw Exc(in.Str() + "\n" + t_("Incorrect BodyExternalDampingMatrixUserOrigin"));
+				Vector3d ref(line[0], line[1], line[2]);
+				TranslateMatrix6(GetMsh().dt.Dlin, ref, Eigen::Vector3d(GetMsh().dt.c0));
+			} else if (fy.FirstIs("BodyExternalStiffnessMatrixOriginType")) {	
+				String origin = fy.GetVal();
+				if (origin == "User specified")
+					;	// Wait for BodyExternalStiffnessMatrixUserOrigin
+				else if (origin == "Centre of mass")
+					TranslateMatrix6(GetMsh().dt.Cadd, Eigen::Vector3d(GetMsh().dt.cg), Eigen::Vector3d(GetMsh().dt.c0));	
+				else if (origin == "Body origin")
+					;
+				else
+					throw Exc(in.Str() + "\n" + t_("Incorrect BodyExternalDampingMatrixOriginType"));
+			} else if (fy.FirstIs("BodyExternalStiffnessMatrixUserOrigin")) {
+				UVector<double> line = fy.GetVectorDouble();
+				if (line.size() != 3)
+					throw Exc(in.Str() + "\n" + t_("Incorrect BodyExternalStiffnessMatrixUserOrigin"));
+				Vector3d ref(line[0], line[1], line[2]);
+				TranslateMatrix6(GetMsh().dt.Cadd, ref, Eigen::Vector3d(GetMsh().dt.c0));
+			}
+		}
+	}
+
+	if (dt.Nb == 0)
+		throw Exc(t_("Incorrect .yml format"));
+	
+	return true;
+}
+
+bool OrcaWave::Load_OF_YML() {
 	String fileName = ForceExtSafer(dt.file, ".yml");
 	FileInLine in(fileName);
 	if (!in.IsOpen()) 
@@ -99,7 +329,7 @@ void OrcaWave::Load_OF_YML() {
 
 	while(fy.GetLine()) {
 		if (fy.FirstIs("LoadRAOCalculationMethod")) 
-			throw Exc(t_("This .yml is an OrcaWave case. Only OrcaFlex .yml can be loaded"));
+			return false;
 		else if (fy.FirstIs("General")) {
 			if (fy.FirstIs("UnitsSystem")) {
 				if (fy.GetVal() == "SI") {
@@ -580,13 +810,23 @@ void OrcaWave::Load_OF_YML() {
 	// Inertia matrices have to be translated from cg to c0
 	for (int iib = 0; iib < dt.Nb; ++iib)
 		Surface::TranslateInertia66(dt.msh[iib].dt.M, dt.msh[iib].dt.cg, dt.msh[iib].dt.cg, dt.msh[iib].dt.c0);
+	
+	return true;
 }
 
 void OrcaWave::SaveCase_OW_YML(String folder, bool bin, int numThreads, bool withPotentials, bool withMesh, bool x0z, bool y0z, 
 								bool irregular, bool autoIrregular, int qtfType, bool autoQTF) const {
+	bool createQTFFreeSurface = true;
+	bool onlyMeanDrift = qtfType > 10;
+	
+	qtfType %= 10;
+	
 	if (irregular && qtfType == 8)
 		throw Exc(t_("The irregular frequencies removal cannot be set with the far field/momentum conservation method"));
-		
+
+	if (!onlyMeanDrift && qtfType == 8)
+		throw Exc(t_("The Momentum Conservation method cannnot perform Full QTF calculation"));
+				
 	bool isv15 = false;
 	
 	String exeName = "bemrosetta_cl";
@@ -615,7 +855,7 @@ void OrcaWave::SaveCase_OW_YML(String folder, bool bin, int numThreads, bool wit
 		throw Exc(F(t_("Impossible to open file '%s'"), fileBat));
 	bat << "echo Start: \%date\% \%time\% > time.txt\n";
 	const Point3D &c0 = dt.msh[0].dt.c0;
-	bat << F("%s -orca -numtries 10 -numthread %d -rw \"%s\" \"%s\" -savewave \"%s\"", exeName, numThreads, "OrcaWave.wave.yml", "OrcaWave.flex.yml", "OrcaWave.flex.yml");
+	bat << F("%s -orca -numtries 10 -numthread %d -rw \"%s\" \"%s\"", exeName, numThreads, "OrcaWave.wave.yml", "OrcaWave.flex.yml");
 	bat << "\necho End:   \%date\% \%time\% >> time.txt\n";
 	
 	FileOut	out;
@@ -655,9 +895,18 @@ void OrcaWave::SaveCase_OW_YML(String folder, bool bin, int numThreads, bool wit
 			"ForceUnits: N\n"
 			"g: " << F("%.5f", dt.g) << "\n";
 	
-	out << 	"# Calculation & output\n"
-			"SolveType: " << ((qtfType == 7 || qtfType == 9) ? "Full QTF calculation" : "Potential formulation only") << "\n"
-			"LoadRAOCalculationMethod: Diffraction\n";
+	out << 	"# Calculation & output\n";
+	out << 	"SolveType: ";
+	if (qtfType > 0 ) {
+		if (onlyMeanDrift)
+			out << "Potential and source formulations";
+		else
+			out << "Full QTF calculation";	
+	} else
+		out << 	   "Potential formulation only";
+	out <<  "\n";
+	
+	out << 	"LoadRAOCalculationMethod: Diffraction\n";
 	if (qtfType == 7 || qtfType == 9)
 		out << "QuadraticLoadPressureIntegration: " << (qtfType == 9 ? "Yes" : "No") << "\n";
 	out <<	"QuadraticLoadControlSurface: " << (qtfType == 7 ? "Yes" : "No") << "\n"
@@ -675,7 +924,7 @@ void OrcaWave::SaveCase_OW_YML(String folder, bool bin, int numThreads, bool wit
 			"LengthTolerance: 100e-9\n"
 			"WaterlineZTolerance: 1e-6\n"
 			"WaterlineGapTolerance: 1e-6\n"
-			"DivideNonPlanarPanels: Yes\n"
+			"DivideNonPlanarPanels: No\n"
 			"LinearSolverMethod: Direct LU\n"
 			"OutputPanelPressures: " << (withPotentials ? "Yes" : "No") << "\n"
 			//"OutputPanelVelocities: No\n"
@@ -708,7 +957,7 @@ void OrcaWave::SaveCase_OW_YML(String folder, bool bin, int numThreads, bool wit
 	if (qtfType > 0) 
 		out << 	"QTFMinCrossingAngle: 0\n"
 				"QTFMaxCrossingAngle: 180\n";
-	if (qtfType == 7 || qtfType == 9) 
+	if (!onlyMeanDrift && (qtfType == 7 || qtfType == 9)) 
 		out <<	"QTFMinPeriodOrFrequency: 0\n"
 				"QTFMaxPeriodOrFrequency: Infinity\n"
 				"QTFFrequencyTypes: Both\n";
@@ -771,7 +1020,7 @@ void OrcaWave::SaveCase_OW_YML(String folder, bool bin, int numThreads, bool wit
 			}
 		}
     	out <<	"    BodyOrcaFlexImportSymmetry: Use global mesh symmetry\n"
-    			"    BodyOrcaFlexImportLength: ~\n"
+    			"    BodyOrcaFlexImportLength: 1\n"
     			"    BodyHydrostaticIntegralMethod: Standard\n"
     			"    BodyHydrostaticStiffnessMethod: Displacement\n"
     			"    BodyInertiaSpecifiedBy: Matrix (for a general body)\n"
@@ -779,9 +1028,9 @@ void OrcaWave::SaveCase_OW_YML(String folder, bool bin, int numThreads, bool wit
     			"    BodyMass: " << b.GetMass() << "\n"
     			"    BodyInertiaTensorRx, BodyInertiaTensorRy, BodyInertiaTensorRz:\n";
 		if (d.M.size() > 0)
-			out << 	"      - [" << F("%f, %f, %f", d.M(3, 3), d.M(3, 4), d.M(3, 5)) << "]\n"
-					"      - [" << F("%f, %f, %f", d.M(4, 3), d.M(4, 4), d.M(4, 5)) << "]\n"
-					"      - [" << F("%f, %f, %f", d.M(5, 3), d.M(5, 4), d.M(5, 5)) << "]\n";
+			out << 	"      - [" << F("%f, %f, %f", Nvl(d.M(3, 3), 0.), Nvl(d.M(3, 4), 0.), Nvl(d.M(3, 5), 0.)) << "]\n"
+					"      - [" << F("%f, %f, %f", Nvl(d.M(4, 3), 0.), Nvl(d.M(4, 4), 0.), Nvl(d.M(4, 5), 0.)) << "]\n"
+					"      - [" << F("%f, %f, %f", Nvl(d.M(5, 3), 0.), Nvl(d.M(5, 4), 0.), Nvl(d.M(5, 5), 0.)) << "]\n";
 		else
 			out <<	"      - [0.001, 0, 	0]\n"
 					"      - [0, 	 0.001,	0]\n"
@@ -795,7 +1044,7 @@ void OrcaWave::SaveCase_OW_YML(String folder, bool bin, int numThreads, bool wit
     			for (int c = 0; c < 6; ++c) {
     				if (c > 0)
     					out << ", ";
-    				out << d.Cadd(r, c);
+    				out << Nvl(d.Cadd(r, c), 0.);
     			}
     			out << "]\n";
     		}
@@ -805,7 +1054,7 @@ void OrcaWave::SaveCase_OW_YML(String folder, bool bin, int numThreads, bool wit
     			for (int c = 0; c < 6; ++c) {
     				if (c > 0)
     					out << ", ";
-    				out << d.Cmoor(r, c);
+    				out << Nvl(d.Cmoor(r, c), 0.);
     			}
     			out << "]\n";
     		}
@@ -821,7 +1070,7 @@ void OrcaWave::SaveCase_OW_YML(String folder, bool bin, int numThreads, bool wit
     			for (int c = 0; c < 6; ++c) {
     				if (c > 0)
     					out << ", ";
-    				out << d.Dlin(r, c);
+    				out << Nvl(d.Dlin(r, c), 0.);
     			}
     			out << "]\n";
     		}
@@ -841,12 +1090,47 @@ void OrcaWave::SaveCase_OW_YML(String folder, bool bin, int numThreads, bool wit
 	}
 	out <<	"# Field points\n"
 			"DetectAndSkipFieldPointsInsideBodies: Yes\n";
-	if (qtfType == 7 || qtfType == 9) 
+	if (!onlyMeanDrift && (qtfType == 7 || qtfType == 9)) {
 		out << 	"# QTFs\n"
-				"QTFCalculationMethod: Direct method\n"
-				"FreeSurfacePanelledZoneType: Defined by mesh file\n"
-				"FreeSurfacePanelledZoneMeshFileName: \n"
-				"FreeSurfacePanelledZoneMeshFormat: Wamit gdf\n"
-				"FreeSurfacePanelledZoneMeshLengthUnits: m\n";
+					"QTFCalculationMethod: Direct method\n";
+		if(!createQTFFreeSurface) {
+			out << 	"FreeSurfacePanelledZoneType: Defined by mesh file\n"
+					"FreeSurfacePanelledZoneMeshFileName: \n"
+					"FreeSurfacePanelledZoneMeshFormat: Wamit gdf\n"
+					"FreeSurfacePanelledZoneMeshLengthUnits: m\n";
+		} else {
+			Surface first = clone(First(dt.msh).dt.mesh);
+			first.GetSegments();
+			double panelSize = first.GetAvgLenSegment();
+			double rsb = 0; // Smallest bounding sphere radius of the bodies 
+			for (int ib = 0; ib < dt.Nb; ++ib) {
+				const VolumeEnvelope &env = dt.msh[ib].dt.mesh.env;
+				rsb = max(rsb, env.Max());
+			}
+			double innerRadius = rsb + 10*panelSize;
+			double Tmin = 4;
+			double lambda_min = SeaWaves::WaveLength(max(Tmin, 2*M_PI/(2*Last(dt.w))), dt.h, Bem().g);
+			double lambda_max = SeaWaves::WaveLength(2*M_PI/First(dt.w), dt.h, Bem().g);
+			double roc = rsb;
+			if (dt.h > 0)
+				roc += min(dt.h, lambda_max);		// Outer Circle Radius
+			else
+				roc += lambda_max;
+			//int numberOfAnnuli = max(1, int((roc - innerRadius)/2./lambda_min));
+			//double radiusStep = (roc - innerRadius)/numberOfAnnuli;
+			//int numberOfAzimuthalNodes = int(6*M_PI*innerRadius/lambda_min);
+			int numberOfSegments = min(1000, int(6*M_PI*roc/lambda_min));
+
+			out << 	"FreeSurfacePanelledZoneType: Automatically generated\n";
+			out << 	F("FreeSurfacePanelledZonePanelSize: %.3f\n", panelSize*1.2);
+			out << 	F("FreeSurfacePanelledZoneInnerRadius: %.3f\n", innerRadius);
+			//out << 	F("FreeSurfaceQuadratureZoneNumberOfAnnuli: %d\n", numberOfAnnuli);
+			//out << 	F("FreeSurfaceQuadratureZoneRadiusStep: %.3f\n", radiusStep);
+			//out << 	"FreeSurfaceQuadratureZoneNumberOfRadialNodes: 6\n";
+			//out << 	F("FreeSurfaceQuadratureZoneNumberOfAzimuthalNodes: %d\n", numberOfAzimuthalNodes);
+			out << 	F("FreeSurfaceOuterCircleNumberOfSegments: %d\n", numberOfSegments);
+			out << 	"FreeSurfaceAsymptoticZoneExpansionOrder: 24\n";
+		}
+	}
 	out << 	"...\n";
 }

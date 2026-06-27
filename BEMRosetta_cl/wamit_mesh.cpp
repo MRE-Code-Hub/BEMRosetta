@@ -155,7 +155,6 @@ String WamitBody::LoadPot(UArray<Body> &mesh, String fileName, bool &y0z, bool &
 	return String();	
 }
 
-	
 String WamitBody::LoadGdf(UArray<Body> &_mesh, String fileName, bool &y0z, bool &x0z, double &g) {
 	FileInLine in(fileName);
 	if (!in.IsOpen()) 
@@ -348,4 +347,58 @@ void WamitBody::SaveGdf(String fileName, const Surface &surf, double g, bool y0z
 void WamitBody::SaveHST(String fileName, double rho, double g) const {
 	Wamit::Save_hst_static(dt.C, fileName, rho, g);
 }
+
+
+String WamitBody::Load_fdf(UArray<Body> &_mesh, String fileName) {
+	FileInLine in(fileName);
+	if (!in.IsOpen()) 
+		return t_(F("Impossible to open '%s'", fileName));
+
+	Body &body = _mesh.Add();
+	body.dt.name = GetFileName(fileName);
+			
+	body.dt.SetCode(WAMIT_GDF);
 	
+	Surface &mesh = body.dt.mesh;
+	
+	String line;
+	LineParser f(in);	
+	f.IsSeparator = [](int c)->int {
+		if (c == '\t' || c == ' ' || c == '!' || c == '=')
+			return true;
+		return false;
+	};
+			
+	try {
+		f.GetLine(4);
+		
+		double x[4], y[4];
+		while (!f.IsEof()) {
+			f.GetLine();
+			for (int i = 0; i < 4; ++i)
+				x[i] = f.GetDouble(i);
+			f.GetLine();
+			for (int i = 0; i < 4; ++i)
+				y[i] = f.GetDouble(i);
+			
+			Panel &p = mesh.panels.Add();
+			
+			for (int i = 0; i < 4; ++i) {
+				Point3D point(x[i], y[i], 0);
+				int in;
+				for (in = 0; in < mesh.nodes.size(); ++in) {
+					if (mesh.nodes[in] == point)
+						break;
+				}
+				if (in == mesh.nodes.size()) {
+					mesh.nodes << point;
+					in = mesh.nodes.size()-1;
+				}
+				p.id[i] = in;
+			}
+		}
+	} catch (Exc e) {
+		return t_("Parsing error: ") + e;
+	}	
+	return String();
+}

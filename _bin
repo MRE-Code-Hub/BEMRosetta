@@ -145,6 +145,9 @@ class BEMRosetta:
         self.libc.BMR_Bem_w_Set.argtypes = [ctypes.POINTER(ctypes.c_double), ctypes.c_int]
         self.libc.BMR_Bem_w_Set.restype = None
 
+        self.libc.BMR_Bem_w_Get.argtypes = [ctypes.POINTER(ctypes.POINTER(ctypes.c_double)), ctypes.POINTER(ctypes.c_int)]
+        self.libc.BMR_Bem_w_Get.restype = None
+
         self.libc.BMR_Bem_headings_Set.argtypes = [ctypes.POINTER(ctypes.c_double), ctypes.c_int]
         self.libc.BMR_Bem_headings_Set.restype = None
 
@@ -561,7 +564,7 @@ class _MeshHydrostaticStiffness:
         if _size0[0]*_size0[1] == 0:
             return np.empty((_size0[0], _size0[1]), dtype=np.float64)
         data = np.ctypeslib.as_array(_data0, shape=(_size0[0], _size0[1]))
-        return data
+        return data.copy()
 
 class _MeshNumPanels:
     def __init__(self, lib, raise_if_error):
@@ -694,6 +697,16 @@ class _Bemw:
             raise ValueError('Function expects a 1D array')
         self.libc.BMR_Bem_w_Set(w.ctypes.data_as(ctypes.POINTER(ctypes.c_double)), w.size)
         self._raise_if_error()
+
+    def Get(self):
+        _data0 = ctypes.POINTER(ctypes.c_double)()
+        _size0 = (ctypes.c_int * 1)()
+        self.libc.BMR_Bem_w_Get(ctypes.byref(_data0), _size0)
+        self._raise_if_error()
+        if _size0[0] == 0:
+            return np.empty((_size0[0],), dtype=np.float64)
+        data = np.ctypeslib.as_array(_data0, shape=(_size0[0],))
+        return data.copy()
 
 class _Bemheadings:
     def __init__(self, lib, raise_if_error):
@@ -889,7 +902,7 @@ class _FAST:
         if _size0[0] == 0:
             return np.empty((_size0[0],), dtype=np.float64)
         data = np.ctypeslib.as_array(_data0, shape=(_size0[0],))
-        return data
+        return data.copy()
 
     def LoadFile(self, file):
         _ret = self.libc.BMR_FAST_LoadFile(os.fspath(file).encode('utf-8'))

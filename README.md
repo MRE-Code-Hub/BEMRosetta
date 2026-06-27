@@ -62,7 +62,7 @@ BEMRosetta runs on Windows and Linux, **no install is necessary in Windows** [(s
       * [Nemoh](https://lheea.ec-nantes.fr/logiciels-et-brevets/nemoh-presentation-192863.kjsp) and [Capytaine](https://github.com/mancellin/capytaine): Nemoh.cal and all the folder structure.
       * [Ansys AQWA](https://www.ansys.com/products/structures/ansys-aqwa): .dat
 	  * [Wamit](https://www.wamit.com/): .pot, .frc, .cfg, .wam
-	  * [OrcaWave](https://www.orcina.com/orcaflex/): .yml
+	  * [OrcaWave](https://www.orcina.com/orcaflex/): .yml (both from OrcaWave and from OrcaFlex)
     * Save
       * [HAMS](https://github.com/YingyiLiu/HAMS): ControlFile.in and all the folders structure.
       * [HAMS-MREL](https://research.tudelft.nl/en/datasets/hydrodynamic-analysis-of-marine-structures-marine-renewable-energ/): ControlFile.in and all the folders structure.
@@ -74,7 +74,7 @@ BEMRosetta runs on Windows and Linux, **no install is necessary in Windows** [(s
       
 * Mesh files
   * Load-View
-    * [Wamit](https://www.wamit.com/): .gdf, .idf, pan.dat, .pot
+    * [Wamit](https://www.wamit.com/): .gdf, .idf, .fdf, pan.dat, .pot
     * [HAMS](https://github.com/YingyiLiu/HAMS): .pnl
     * [Nemoh](https://lheea.ec-nantes.fr/logiciels-et-brevets/nemoh-mesh-192932.kjsp?RH=1489593406974) and [Capytaine](https://github.com/mancellin/capytaine): .dat
     * [Ansys AQWA](https://www.ansys.com/products/structures/ansys-aqwa): .dat

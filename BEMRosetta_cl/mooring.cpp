@@ -53,13 +53,11 @@ void Mooring::LineProperty::Jsonize(JsonIO &json) {
 
 void Mooring::Connection::Jsonize(JsonIO &json) {
 	if (json.IsLoading())
-		x = y = z = 0;
+		p.SetZero();
 	json
 		("name", name)
 		("where", where)
-		("x", x)
-		("y", y)
-		("z", z)
+		("p", p)
 	;
 }
 
@@ -147,10 +145,10 @@ bool Mooring::LoadMoordyn(String file) {
 					if (!conn.where.StartsWith("body"))
 	 					throw Exc(F(t_("Unknown type of attachment '%s' in point '%s'"), f.GetText(1), conn.name)); 
 				}
-				conn.x = f.GetDouble(2);
-				conn.y = f.GetDouble(3);
-				conn.z = f.GetDouble(4);
-				zmin = min(zmin, conn.z);
+				conn.p.x = f.GetDouble(2);
+				conn.p.y = f.GetDouble(3);
+				conn.p.z = f.GetDouble(4);
+				zmin = min(zmin, conn.p.z);
 			} else if (status == 'l') {
 				LineProperty &prop = lP.Add();
 				prop.name = f.GetText(0);
@@ -220,7 +218,7 @@ bool Mooring::SaveMoordyn(String file, int mooring, bool fairleads, bool anchors
 		<<  F(" %3=s %8=s %12=s %12=s %12=s %6=s %6=s %6=s %6=s\n", "(-)", "(-) ", "(m)", "(m)", "(m)", "(kg)", "(m^3)", "(m^2)", "(-)");
 	for (int i = 0; i < connections.size(); ++i) {		
 		const Connection &conn = connections[i];
-		out << F(" %3d %8=s %12.4f %12.4f %12.4f %6.1f %6.1f %6.1f %6.1f\n", i+1, InitCaps(conn.where), conn.x, conn.y, conn.z, 0, 0, 0, 0);
+		out << F(" %3d %8=s %12.4f %12.4f %12.4f %6.1f %6.1f %6.1f %6.1f\n", i+1, InitCaps(conn.where), conn.p.x, conn.p.y, conn.p.z, 0, 0, 0, 0);
 	}
 	out <<  "----------------------- LINES -----------------------------------------------\n"
 		<<	F(" %3=s %12=s %8=s %8=s %12=s %8=s %8=s\n", "ID ", "LineType", "AttachA", "AttachB", "UnstrLen", "NumSegs", "Outputs")
@@ -251,10 +249,10 @@ bool Mooring::SaveMoordyn(String file, int mooring, bool fairleads, bool anchors
 			const Connection &conn = connections[ic];
 			if (line.from == conn.name) {
 				from = ic;
-				zfrom = conn.z;
+				zfrom = conn.p.z;
 			} else if (line.to == conn.name) {
 				to = ic;
-				zto = conn.z;
+				zto = conn.p.z;
 			}
 		}
 		if (from < 0) {
@@ -369,7 +367,7 @@ bool Mooring::FindClosest(Mooring::ClosestInfo &info) {
 	auto DistanceClosestConnector = [&](double x, double y, double z)->double {
 		double mind = std::numeric_limits<double>::max();
 		for (Connection &c : connections) 
-			mind = min(mind, Distance3D(x, y, z, c.x, c.y, c.z));
+			mind = min(mind, Distance3D(x, y, z, c.p.x, c.p.y, c.p.z));
 		return mind;
 	};
 	
@@ -422,61 +420,66 @@ bool Mooring::Calc(double rho_water, int num, double rho_m3) {
 		const LineType &linetype = GetLineType(line.nameType);
 		const Connection &from = GetConnection(line.from);
 		const Connection &to = GetConnection(line.to);
-		double zanchor = Null, zvessel = Null;
-		double fromx = from.x;
-		double tox = to.x;
-		double fromy = from.y;
-		double toy = to.y;
 		
-		bool reverse = false;
-		int id;
-		id = FindVessel(from.where);
-		if (id >= 0) {
-			fromx += vessels[id].dx;  
-			fromy += vessels[id].dy;
-			zvessel = from.z;
-			zanchor = to.z;
-		}
-		id = FindVessel(to.where);
-		if (id >= 0) {
-			tox += vessels[id].dx;
-			toy += vessels[id].dy;
-			zvessel = to.z;
-			zanchor = from.z;
-			reverse = true;
-		}
-		if (IsNull(zanchor)) { // Both are fixed
-			if (to.z < from.z) {
-				zvessel = to.z;
-				zanchor = from.z;
-				reverse = true;
-			} else {
-				zvessel = from.z;
-				zanchor = to.z;
+		if (IsNull(from.p) || IsNull(to.p))
+			line.status = CALCULATION_PROBLEM;
+		else {
+			double zanchor = Null, zvessel = Null;
+			double fromx = from.p.x;
+			double tox = to.p.x;
+			double fromy = from.p.y;
+			double toy = to.p.y;
+			
+			bool reverse = false;
+			int id;
+			id = FindVessel(from.where);
+			if (id >= 0) {
+				fromx += vessels[id].dx;  
+				fromy += vessels[id].dy;
+				zvessel = from.p.z;
+				zanchor = to.p.z;
 			}
+			id = FindVessel(to.where);
+			if (id >= 0) {
+				tox += vessels[id].dx;
+				toy += vessels[id].dy;
+				zvessel = to.p.z;
+				zanchor = from.p.z;
+				reverse = true;
+			}
+			if (IsNull(zanchor)) { // Both are fixed
+				if (to.p.z < from.p.z) {
+					zvessel = to.p.z;
+					zanchor = from.p.z;
+					reverse = true;
+				} else {
+					zvessel = from.p.z;
+					zanchor = to.p.z;
+				}
+			}
+			
+			double xanchorvessel = sqrt(sqr(fromx - tox) + sqr(fromy - toy));
+			
+			line.status = Catenary(linetype.mass, rho_m3, rho_water, line.length, linetype.bl, 
+						xanchorvessel, zanchor + depth, zvessel + depth, line.fanchorvessel, line.fVanchor, line.fVvessel, 
+						line.lenonfloor, vpos, line.z, num);	
+			
+			if (reverse) 
+				::Reverse(vpos);
+	
+			line.fVanchor = -line.fVanchor;
+			line.theta = atan2(toy - fromy, tox - fromx);
+			line.x.SetCount(vpos.size());		
+			line.y.SetCount(vpos.size());		
+			for (int i = 0; i < vpos.size(); ++i) {
+				line.x[i] = fromx + vpos[vpos.size()-i-1]*cos(line.theta);
+				line.y[i] = fromy + vpos[vpos.size()-i-1]*sin(line.theta);
+			}
+			for (double &z : line.z)
+				z -= depth;
+			if (reverse)
+				line.theta += M_PI;
 		}
-		
-		double xanchorvessel = sqrt(sqr(fromx - tox) + sqr(fromy - toy));
-		
-		line.status = Catenary(linetype.mass, rho_m3, rho_water, line.length, linetype.bl, 
-					xanchorvessel, zanchor + depth, zvessel + depth, line.fanchorvessel, line.fVanchor, line.fVvessel, 
-					line.lenonfloor, vpos, line.z, num);	
-		
-		if (reverse) 
-			::Reverse(vpos);
-
-		line.fVanchor = -line.fVanchor;
-		line.theta = atan2(toy - fromy, tox - fromx);
-		line.x.SetCount(vpos.size());		
-		line.y.SetCount(vpos.size());		
-		for (int i = 0; i < vpos.size(); ++i) {
-			line.x[i] = fromx + vpos[vpos.size()-i-1]*cos(line.theta);
-			line.y[i] = fromy + vpos[vpos.size()-i-1]*sin(line.theta);
-		}
-		for (double &z : line.z)
-			z -= depth;
-		if (reverse)
-			line.theta += M_PI;
 	}
 	return true;
 }

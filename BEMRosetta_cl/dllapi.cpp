@@ -8,13 +8,6 @@ BEM &Bem() 		{static BEM bem;		return bem;}
 #ifdef PLATFORM_WIN32
 #include "orca.h"
 
-Function<bool(String, int, const Time &, int64)> Orca::WhenWave = [](String str, int perc, const Time &et, int64 duration)->bool {
-	if (IsNull(et))
-		BEM::Print("\nCompleted 0%"); 
-	else
-		BEM::Print(F("\nCompleted %d%%. Et: %", perc, et) + F(". Duration: %s", SecondsToString((double)duration, 0, false, false, true, false, false))); 
-	return 0;
-};
 
 Function<bool(String)> Orca::WhenPrint = [](String str)->bool {
 	BEM::Print(F("\n%s", str)); 
@@ -688,6 +681,22 @@ void BMR_Bem_w_Set(const double *w, int dim) noexcept {
 		hy.dt.pots_inc.Clear();
 		hy.dt.pots_inc_bmr.Clear();
 		hy.dt.Apan = Eigen::Tensor<double, 5>();
+	} catch(Exc err) {
+		BMR().errorStr = err;
+		return;
+	}
+	BMR().errorStr.Clear();
+}
+
+void BMR_Bem_w_Get(double **data, int dim[1]) noexcept {
+	try {
+		if (Bem().hydros.IsEmpty()) 
+			throw Exc(t_("No file loaded"));
+		
+		Hydro &hy = Bem().hydros[BMR().bemid];
+		
+		dim[0] = hy.dt.Nf;
+		*data = hy.dt.w.begin();
 	} catch(Exc err) {
 		BMR().errorStr = err;
 		return;

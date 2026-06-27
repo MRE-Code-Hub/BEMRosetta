@@ -7,6 +7,9 @@
 
 void HydroStar::SaveCase(String folder, bool /*withPotentials*/, bool x0z, bool y0z, 
 				const UVector<bool> &listDOF, bool irregular, bool autoIrregular, int qtfType, bool autoQTF) const {
+	bool onlyMeanDrift = qtfType > 10;					// INTEGRATE THIS !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	qtfType %= 10;
+	
 	if (!DirectoryCreateX(folder))
 		throw Exc(Format(t_("Problem creating '%s' folder"), folder));
 	

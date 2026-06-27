@@ -354,6 +354,8 @@ static String ToText(double d) {
 	}
 	if (*(ret.Last()) == '.')
 		ret.Remove(ret.GetCount()-1);
+	if (ret == "-0")
+		ret = "0";
 	return ret;
 }
 
@@ -376,21 +378,21 @@ bool AnalyzeStep(const UVector<double>& data, double tolerance, double &minVal, 
     }
 
     minVal = data[0];
-    step = data[1] - data[0];
+    maxVal = data.Top();
+    step = (maxVal - minVal)/(n-1);
 
-    for (int i = 1; i < n-1; i++) {
+    for (int i = 0; i < n-1; i++) {
         double currentStep = data[i+1] - data[i];
         if (abs(currentStep - step) > tolerance)
             return false;
     }
-    maxVal = data.Top();
     return true;
 }
 
 template <class Range>
 String ToText(const Range& a) {
 	double minVal, step, maxVal;
-	if (AnalyzeStep(a, 1e-7, minVal, step, maxVal)) {
+	if (AnalyzeStep(a, 1e-5, minVal, step, maxVal)) {
 		if (step == 0)
 			return F("%s", ToText(minVal));
 		else
@@ -436,7 +438,8 @@ String DiffracData::SaveXML() {
 		<< "      <springMatrixFn></springMatrixFn>\n"
 		<< "    </springMatrix>\n"
     ;
-	out	<< "    <dampLids>\n";
+    if (!parINIDIF.lids.IsEmpty())
+		out	<< "    <dampLids>\n";
 	for (int i = 0; i < parINIDIF.lids.size(); ++i) {
 		out << "      <dampLid>\n";
 		out << F("        <origin>%s</origin>\n", ToText(parINIDIF.lids[i].origin));
@@ -449,7 +452,8 @@ String DiffracData::SaveXML() {
 		out << F("        <dampIncWave>%s</dampIncWave>\n", ToText(parINIDIF.lids[i].dampIncWave));
 		out << "      </dampLid>\n";
 	}
-	out << "    </dampLids>\n";
+	if (!parINIDIF.lids.IsEmpty())
+		out << "    </dampLids>\n";
 	out << "  </parINIDIF>\n";	
 	
 	out << "  <parDIFFRAC>\n"
@@ -472,8 +476,10 @@ String DiffracData::SaveXML() {
 	;
 
 	out << "  <parDBRESP>\n"
-		<< F("    <runProgram>%s</runProgram>\n", ToText(parDBRESP.runProgram))
-		<< "    <BodyInputs>\n";
+		<< F("    <runProgram>%s</runProgram>\n", ToText(parDBRESP.runProgram));
+	
+	if (!parDBRESP.inputs.IsEmpty())
+		out << "    <BodyInputs>\n";
 	for (int i = 0; i < parDBRESP.inputs.size(); ++i) {
 		out << "      <BodyInput>\n"
 			<< F("        <index>%s</index>\n", ToText(parDBRESP.inputs[i].index))
@@ -492,7 +498,8 @@ String DiffracData::SaveXML() {
 			<< "      </BodyInput>\n"
 		;
 	}
-	out	<< "    </BodyInputs>\n";
+	if (!parDBRESP.inputs.IsEmpty())
+		out	<< "    </BodyInputs>\n";
 	if (!parDBRESP.springMatrix.fileName.IsEmpty()) {
 		out	<< "    <springMatrix>\n"
 			<< F("      <fileName>%s</fileName>\n", parDBRESP.springMatrix.fileName)
@@ -509,47 +516,51 @@ String DiffracData::SaveXML() {
 	}
 	out	<< "  </parDBRESP>\n";
 
-	out << "  <parDRIFTP>\n"
-		<< F("    <runProgram>%s</runProgram>\n", ToText(parDRIFTP.runProgram))
-		<< F("    <exportContribution1>%s</exportContribution1>\n", ToText(parDRIFTP.exportContribution[0]))
-		<< F("    <exportContribution2>%s</exportContribution2>\n", ToText(parDRIFTP.exportContribution[1]))
-		<< F("    <exportContribution3>%s</exportContribution3>\n", ToText(parDRIFTP.exportContribution[2]))
-		<< F("    <exportContribution4>%s</exportContribution4>\n", ToText(parDRIFTP.exportContribution[3]))
-		<< F("    <exportContribution5>%s</exportContribution5>\n", ToText(parDRIFTP.exportContribution[4]))
-		<< F("    <minFrequency>%s</minFrequency>\n", ToText(parDRIFTP.minFrequency))
-		<< F("    <maxFrequency>%s</maxFrequency>\n", ToText(parDRIFTP.maxFrequency))
-		<< F("    <numberOfWavefrequencyDiagonals>%s</numberOfWavefrequencyDiagonals>\n", ToText(parDRIFTP.numberOfWavefrequencyDiagonals))
-		<< F("    <waveDirInteraction>%s</waveDirInteraction>\n", ToText(parDRIFTP.waveDirInteraction))
-		<< "  </parDRIFTP>\n"
-	;
-
-	out << "  <parSUMFREQUENCYWAVEFORCES>\n"
-		<< F("    <runProgram>%s</runProgram>\n", ToText(parSUMFREQUENCYWAVEFORCES.runProgram))
-		<< F("    <exportContribution1>%s</exportContribution1>\n", ToText(parSUMFREQUENCYWAVEFORCES.exportContribution[0]))
-		<< F("    <exportContribution2>%s</exportContribution2>\n", ToText(parSUMFREQUENCYWAVEFORCES.exportContribution[1]))
-		<< F("    <exportContribution3>%s</exportContribution3>\n", ToText(parSUMFREQUENCYWAVEFORCES.exportContribution[2]))
-		<< F("    <exportContribution4>%s</exportContribution4>\n", ToText(parSUMFREQUENCYWAVEFORCES.exportContribution[3]))
-		<< F("    <exportContribution5>%s</exportContribution5>\n", ToText(parSUMFREQUENCYWAVEFORCES.exportContribution[4]))
-		<< F("    <minFrequency>%s</minFrequency>\n", ToText(parSUMFREQUENCYWAVEFORCES.minFrequency))
-		<< F("    <maxFrequency>%s</maxFrequency>\n", ToText(parSUMFREQUENCYWAVEFORCES.maxFrequency))
-		<< F("    <numberOfWavefrequencyDiagonals>%s</numberOfWavefrequencyDiagonals>\n", ToText(parSUMFREQUENCYWAVEFORCES.numberOfWavefrequencyDiagonals))
-		<< F("    <waveDirInteraction>%s</waveDirInteraction>\n", ToText(parSUMFREQUENCYWAVEFORCES.waveDirInteraction))
-		<< "  </parSUMFREQUENCYWAVEFORCES>\n"
-	;
-		
+	if (parDRIFTP.runProgram) {
+		out << "  <parDRIFTP>\n"
+			<< F("    <runProgram>%s</runProgram>\n", ToText(parDRIFTP.runProgram))
+			<< F("    <exportContribution1>%s</exportContribution1>\n", ToText(parDRIFTP.exportContribution[0]))
+			<< F("    <exportContribution2>%s</exportContribution2>\n", ToText(parDRIFTP.exportContribution[1]))
+			<< F("    <exportContribution3>%s</exportContribution3>\n", ToText(parDRIFTP.exportContribution[2]))
+			<< F("    <exportContribution4>%s</exportContribution4>\n", ToText(parDRIFTP.exportContribution[3]))
+			<< F("    <exportContribution5>%s</exportContribution5>\n", ToText(parDRIFTP.exportContribution[4]))
+			<< F("    <minFrequency>%s</minFrequency>\n", ToText(parDRIFTP.minFrequency))
+			<< F("    <maxFrequency>%s</maxFrequency>\n", ToText(parDRIFTP.maxFrequency))
+			<< F("    <numberOfWavefrequencyDiagonals>%s</numberOfWavefrequencyDiagonals>\n", ToText(parDRIFTP.numberOfWavefrequencyDiagonals))
+			<< F("    <waveDirInteraction>%s</waveDirInteraction>\n", ToText(parDRIFTP.waveDirInteraction))
+			<< "  </parDRIFTP>\n"
+		;
+	}
+	if (parSUMFREQUENCYWAVEFORCES.runProgram) {
+		out << "  <parSUMFREQUENCYWAVEFORCES>\n"
+			<< F("    <runProgram>%s</runProgram>\n", ToText(parSUMFREQUENCYWAVEFORCES.runProgram))
+			<< F("    <exportContribution1>%s</exportContribution1>\n", ToText(parSUMFREQUENCYWAVEFORCES.exportContribution[0]))
+			<< F("    <exportContribution2>%s</exportContribution2>\n", ToText(parSUMFREQUENCYWAVEFORCES.exportContribution[1]))
+			<< F("    <exportContribution3>%s</exportContribution3>\n", ToText(parSUMFREQUENCYWAVEFORCES.exportContribution[2]))
+			<< F("    <exportContribution4>%s</exportContribution4>\n", ToText(parSUMFREQUENCYWAVEFORCES.exportContribution[3]))
+			<< F("    <exportContribution5>%s</exportContribution5>\n", ToText(parSUMFREQUENCYWAVEFORCES.exportContribution[4]))
+			<< F("    <minFrequency>%s</minFrequency>\n", ToText(parSUMFREQUENCYWAVEFORCES.minFrequency))
+			<< F("    <maxFrequency>%s</maxFrequency>\n", ToText(parSUMFREQUENCYWAVEFORCES.maxFrequency))
+			<< F("    <numberOfWavefrequencyDiagonals>%s</numberOfWavefrequencyDiagonals>\n", ToText(parSUMFREQUENCYWAVEFORCES.numberOfWavefrequencyDiagonals))
+			<< F("    <waveDirInteraction>%s</waveDirInteraction>\n", ToText(parSUMFREQUENCYWAVEFORCES.waveDirInteraction))
+			<< "  </parSUMFREQUENCYWAVEFORCES>\n"
+		;
+	}
 	out << "  <parEXPORT>\n"
-		<< F("    <runProgram>%s</runProgram>\n", ToText(parEXPORT.runProgram))
-		<< "    <hydFile>\n"
-		<< F("      <export>%s</export>\n", ToText(parEXPORT.hyd.exportOn))
-		<< F("      <exportQTFContribution1>%s</exportQTFContribution1>\n", ToText(parEXPORT.hyd.exportQTF[0]))
-		<< F("      <exportQTFContribution2>%s</exportQTFContribution2>\n", ToText(parEXPORT.hyd.exportQTF[1]))
-		<< F("      <exportQTFContribution3>%s</exportQTFContribution3>\n", ToText(parEXPORT.hyd.exportQTF[2]))
-		<< F("      <exportQTFContribution4>%s</exportQTFContribution4>\n", ToText(parEXPORT.hyd.exportQTF[3]))
-		<< F("      <exportQTFContribution5>%s</exportQTFContribution5>\n", ToText(parEXPORT.hyd.exportQTF[4]))
-		<< F("      <numberOfWavefrequencyDiagonals>%s</numberOfWavefrequencyDiagonals>\n", ToText(parEXPORT.hyd.numberOfWavefrequencyDiagonals))
+		<< F("    <runProgram>%s</runProgram>\n", ToText(parEXPORT.runProgram));
+	out	<< "    <hydFile>\n"
+		<< F("      <export>%s</export>\n", ToText(parEXPORT.hyd.exportOn));
+	if (parSUMFREQUENCYWAVEFORCES.runProgram) 
+		out	<< F("      <exportQTFContribution1>%s</exportQTFContribution1>\n", ToText(parEXPORT.hyd.exportQTF[0]))
+			<< F("      <exportQTFContribution2>%s</exportQTFContribution2>\n", ToText(parEXPORT.hyd.exportQTF[1]))
+			<< F("      <exportQTFContribution3>%s</exportQTFContribution3>\n", ToText(parEXPORT.hyd.exportQTF[2]))
+			<< F("      <exportQTFContribution4>%s</exportQTFContribution4>\n", ToText(parEXPORT.hyd.exportQTF[3]))
+			<< F("      <exportQTFContribution5>%s</exportQTFContribution5>\n", ToText(parEXPORT.hyd.exportQTF[4]));
+	out	<< F("      <numberOfWavefrequencyDiagonals>%s</numberOfWavefrequencyDiagonals>\n", ToText(parEXPORT.hyd.numberOfWavefrequencyDiagonals))
 		<< "    </hydFile>\n"
 	;
-	out << "    <MonitorRelativeWaveHeights>\n";
+	if (!parEXPORT.relHeights.IsEmpty())
+		out << "    <MonitorRelativeWaveHeights>\n";
 	for (int i = 0; i < parEXPORT.relHeights.size(); ++i) {
 		out << "      <MonitorRelativeWaveHeight>\n"
 			<< F("        <name>%s</name>\n", parEXPORT.relHeights[i].name)
@@ -566,13 +577,15 @@ String DiffracData::SaveXML() {
 			<< "      </MonitorRelativeWaveHeight>\n"
 		;		
 	}
-	out << "    </MonitorRelativeWaveHeights>\n";
+	if (!parEXPORT.relHeights.IsEmpty())
+		out << "    </MonitorRelativeWaveHeights>\n";
 	
 	out << "    <CGNS>\n"
 		<< F("      <export>false</export>\n", ToText(parEXPORT.cgns.exportOn))
-		<< F("      <waveFreq>0.8</waveFreq>\n", ToText(parEXPORT.cgns.exportOn))
-		<< "      <MonitorFlowDatas>\n"
-	;
+		<< F("      <waveFreq>0.8</waveFreq>\n", ToText(parEXPORT.cgns.exportOn));
+	
+	if (!parEXPORT.cgns.monitorFlowData.IsEmpty())
+		out << "      <MonitorFlowDatas>\n";
 	for (int i = 0; i < parEXPORT.cgns.monitorFlowData.size(); ++i) {
 		out	<< "        <MonitorFlowData>\n"
 			<< "          <grids>\n";
@@ -590,16 +603,22 @@ String DiffracData::SaveXML() {
 			;
 		}
 		out	<< "          </grids>\n"
-			<< "        </MonitorFlowData>\n";
+		    << "        </MonitorFlowData>\n";
 	}
-	out	<< "      </MonitorFlowDatas>\n"
-		<< F("      <movingBodies>%s</movingBodies>\n", ToText(parEXPORT.cgns.movingBodies))
+	if (!parEXPORT.cgns.monitorFlowData.IsEmpty())
+		out	<< "      </MonitorFlowDatas>\n";
+	
+	out	<< F("      <movingBodies>%s</movingBodies>\n", ToText(parEXPORT.cgns.movingBodies))
 		<< F("      <movingFreeSurface>%s</movingFreeSurface>\n", ToText(parEXPORT.cgns.movingFreeSurface))
 		<< F("      <numberOfTimeSteps>%s</numberOfTimeSteps>\n", ToText(parEXPORT.cgns.numberOfTimeSteps))
 		<< F("      <waveAmplificationFactor>%s</waveAmplificationFactor>\n", ToText(parEXPORT.cgns.waveAmplificationFactor))
 		<< F("      <waveDir>%s</waveDir>\n", ToText(parEXPORT.cgns.waveDir))
 		<< "    </CGNS>\n"
-    ;	
+    ;
+    out	<< "    <H5M>\n"
+      	<< "      <export>true</export>\n"
+    	<< "    </H5M>\n"
+    	<< "    <monitorAmassDampAtCoG>false</monitorAmassDampAtCoG>\n";
 	out << "  </parEXPORT>\n";
 	
 	out	<< "  <bodies>\n";
@@ -662,9 +681,10 @@ String Diffrac::LoadCase(String file) {
 
 		DiffracData data;
 		data.LoadXML(xml);
-
+		
+		dt.name = data.parINIDIF.dataBaseFn;
+		
 		dt.rho = data.parINIDIF.density*1000;
-	
 		dt.h = data.parDIFFRAC.waterDepth;
 		dt.w = pick(data.parDIFFRAC.waveFreq);
 		dt.Nf = dt.w.size();
@@ -676,12 +696,12 @@ String Diffrac::LoadCase(String file) {
 		for (int ib = 0; ib < dt.Nb; ++ib) {
 			DiffracData::Body &b = data.bodies[ib];		
 			Body &msh = dt.msh[ib];
-
-			msh.dt.name = b.name;
 			
 			Body::Load(msh, AFX(folder, b.meshFn), dt.rho, Bem().g, Null, Null, false);
 			if (msh.dt.mesh.IsEmpty())
 				return F(t_("Impossible to load mesh file %s"), b.meshFn);
+			
+			msh.dt.name = b.name;
 			
 			DiffracData::Body::MassElement &m = b.massElements[0];
 			msh.dt.M = MatrixXd::Zero(6, 6);
@@ -689,11 +709,16 @@ String Diffrac::LoadCase(String file) {
 			msh.dt.M(3, 3) = m.mass*sqr(m.rollRadiusGyr);
 			msh.dt.M(4, 4) = m.mass*sqr(m.pitchRadiusGyr);
 			msh.dt.M(5, 5) = m.mass*sqr(m.yawRadiusGyr);
+			msh.dt.M *= 1000.;
 			
 			double minZ = msh.dt.mesh.env.minZ;
 			msh.dt.cg = pick(m.COGwrtKeel);
 			msh.dt.cg.z += minZ;
 			msh.dt.c0 = clone(msh.dt.cg);
+			
+			msh.dt.cg += b.translation;
+			msh.dt.c0 += b.translation;
+			msh.dt.mesh.Translate(b.translation);
 			
 			Surface lid;
 			if (lid.GetPanels(msh.dt.mesh, false, true, false, Null, Null)) {
@@ -745,6 +770,9 @@ String Diffrac::LoadCase(String file) {
 
 void Diffrac::SaveCase(String folder, int numThreads, bool withPotentials, bool x0z, bool y0z, 
 					   const UVector<bool> &listDOF, bool irregular, int qtfType) const {
+	bool onlyMeanDrift = qtfType > 10;
+	qtfType %= 10;
+		       
 	if (!DirectoryCreateX(folder))
 		throw Exc(Format(t_("Problem creating '%s' folder"), folder));
 
@@ -752,13 +780,14 @@ void Diffrac::SaveCase(String folder, int numThreads, bool withPotentials, bool 
 	
 	data.nProcs = numThreads;
 	
-	data.parINIDIF.density = dt.rho/1000;
+	data.parINIDIF.dataBaseFn = dt.name;
 	
+	data.parINIDIF.density = dt.rho/1000;
 	data.parDIFFRAC.waterDepth = dt.h;
 	data.parDIFFRAC.waveFreq = clone(dt.w);
 	data.parDIFFRAC.waveDir = clone(dt.head);
 	if (irregular) {
-		data.parDIFFRAC.irregFreqSuppression = "DAMPING LID";
+		data.parDIFFRAC.irregFreqSuppression = "RIGID LID";
 		data.parDIFFRAC.irregFreqDamping = 0.03;
 	} else
 		data.parDIFFRAC.irregFreqSuppression = "NONE";
@@ -815,17 +844,36 @@ void Diffrac::SaveCase(String folder, int numThreads, bool withPotentials, bool 
 		data.parDBRESP.dampingMatrix.fileName = "dampingMatrix.txt";
 	}
 	
-	if (qtfType <= 0)
+	if (qtfType <= 0) {
 		data.parDRIFTP.runProgram = data.parSUMFREQUENCYWAVEFORCES.runProgram = false;
-	else {
-		data.parDRIFTP.runProgram = data.parSUMFREQUENCYWAVEFORCES.runProgram = true;
-		for (int i = 0; i < 5; ++i)
-			data.parDRIFTP.exportContribution[i] = data.parSUMFREQUENCYWAVEFORCES.exportContribution[i] = true;
+		data.parEXPORT.hyd.exportOn = false;
+	} else {
+		data.parEXPORT.hyd.exportOn = true;
 		
-		data.parDRIFTP.minFrequency = data.parSUMFREQUENCYWAVEFORCES.minFrequency = First(dt.w);
-		data.parDRIFTP.maxFrequency = data.parSUMFREQUENCYWAVEFORCES.maxFrequency = Last(dt.w);
-		data.parDRIFTP.numberOfWavefrequencyDiagonals = data.parSUMFREQUENCYWAVEFORCES.numberOfWavefrequencyDiagonals = dt.Nf;
-		data.parDRIFTP.waveDirInteraction = data.parSUMFREQUENCYWAVEFORCES.waveDirInteraction = true;
+		data.parDRIFTP.runProgram = true;
+		for (int i = 0; i < 5; ++i)
+			data.parDRIFTP.exportContribution[i] = true;
+		
+		data.parDRIFTP.minFrequency = First(dt.w);
+		data.parDRIFTP.maxFrequency = Last(dt.w);
+		data.parDRIFTP.numberOfWavefrequencyDiagonals = dt.Nf;
+		data.parDRIFTP.waveDirInteraction = true;
+		
+		if (!onlyMeanDrift) {
+			data.parSUMFREQUENCYWAVEFORCES.runProgram = true;
+			for (int i = 0; i < 5; ++i)
+				data.parSUMFREQUENCYWAVEFORCES.exportContribution[i] = true;
+			
+			data.parSUMFREQUENCYWAVEFORCES.minFrequency = First(dt.w);
+			data.parSUMFREQUENCYWAVEFORCES.maxFrequency = Last(dt.w);
+			data.parSUMFREQUENCYWAVEFORCES.numberOfWavefrequencyDiagonals = dt.Nf;
+			data.parSUMFREQUENCYWAVEFORCES.waveDirInteraction = true;
+		} else {
+			data.parSUMFREQUENCYWAVEFORCES.runProgram = false;
+			data.parEXPORT.hyd.numberOfWavefrequencyDiagonals = 0;
+		}
+		for (int i = 0; i < 5; ++i)
+			data.parEXPORT.hyd.exportQTF[i] = !onlyMeanDrift;
 	}
 
 	data.bodies.SetCount(dt.Nb);
@@ -835,11 +883,11 @@ void Diffrac::SaveCase(String folder, int numThreads, bool withPotentials, bool 
 		
 		b.index = ib+1;
 		b.name = msh.dt.name;
-		b.meshFn = F("Body_%d.vtk", ib+1);
-		DiffracData::Body::MassElement &m = b.massElements.Add();
-		m.mass = msh.GetMass();		
 		
-		MatrixXd M = msh.dt.M;
+		DiffracData::Body::MassElement &m = b.massElements.Add();
+		MatrixXd M = msh.dt.M/1000.;
+		
+		m.mass = M(0, 0);		
 		Surface::TranslateInertia66(M, msh.dt.cg, msh.dt.c0, msh.dt.cg);
 		m.rollRadiusGyr = sqrt(M(3, 3)/m.mass);
 		m.pitchRadiusGyr = sqrt(M(4, 4)/m.mass);
@@ -847,12 +895,19 @@ void Diffrac::SaveCase(String folder, int numThreads, bool withPotentials, bool 
 		
 		m.COGwrtKeel = clone(msh.dt.cg);
 		m.COGwrtKeel.z -= msh.dt.mesh.env.minZ;
+		
+		b.hstat.draft = abs(msh.dt.mesh.env.minZ);
+		b.hstat.lengthBetweenPerp = max(msh.dt.mesh.env.maxX, msh.dt.mesh.env.maxY) - min(msh.dt.mesh.env.minX, msh.dt.mesh.env.minY);
 	}
 	
+	UArray<Body> bodies(dt.Nb);
 	for (int ib = 0; ib < dt.Nb; ++ib) {
-		String dest = AFX(folder, F("Body_%d.vtk", ib+1));
+		DiffracData::Body &b = data.bodies[ib];
 		
-		Body under = clone(dt.msh[ib]);
+		b.meshFn = F("Body_%d.vtk", ib+1);
+		String dest = AFX(folder, b.meshFn);
+		
+		bodies[ib] = clone(dt.msh[ib]);
 		bool isLid = irregular && dt.lids.size() > ib && !dt.lids[ib].dt.mesh.panels.IsEmpty();
 		if (isLid) {
 			Surface lid = clone(dt.lids[ib].dt.mesh);
@@ -864,11 +919,30 @@ void Diffrac::SaveCase(String folder, int numThreads, bool withPotentials, bool 
 				lid = pick(nlid);				
 			} else
 				lid.TrianglesToFalseQuads();
-			under.Append(lid, dt.rho, dt.g);
+			bodies[ib].Append(lid, dt.rho, dt.g);
 		}
-		Body::SaveAs(under, dest, Body::VTK_ASCII, Body::ALL, dt.rho, dt.g, y0z, x0z);
 	}
-	
+	for (int ib = 0; ib < dt.Nb; ++ib) {
+		DiffracData::Body &b = data.bodies[ib];
+		
+		bool save = true;
+		if (ib > 0) {
+			Value3D dist;
+			for (int iib = 0; iib < ib; ++iib) {
+				if (bodies[ib].dt.mesh.CompareDistance(bodies[iib].dt.mesh, 0.0001, dist)) {
+					save = false;
+					b.translation = -dist;
+					b.massElements[0].COGwrtKeel += dist;
+					b.meshFn = data.bodies[iib].meshFn;
+					break;
+				}
+			}
+		}
+		if (save) {
+			String dest = AFX(folder, F("Body_%d.vtk", ib+1));
+			Body::SaveAs(bodies[ib], dest, Body::VTK_ASCII_4, Body::ALL, dt.rho, dt.g, y0z, x0z);
+		}
+	}
 	SaveFile(AFX(folder, "diffrac.xml"), data.SaveXML());				
 }
 
@@ -919,30 +993,28 @@ void Diffrac::Load_H5() {
 		if (dt.h == 0)
 			dt.h = -1;
 		
-		UVector<float> head;
-		hfile.GetDouble("wave direction", head);
-		if (head.IsEmpty())
-			throw Exc("No headings found");
-		dt.head.SetCount(head.size());
-		for (int i = 0; i < head.size(); ++i)
-			dt.head[i] = head[i];
-		dt.Nh = head.size();
-		
-		UVector<float> w;
-		hfile.GetDouble("wave frequency", w);
-		if (w.IsEmpty())
-			throw Exc("No frequencies found");
-		dt.w.SetCount(w.size());
-		for (int i = 0; i < w.size(); ++i)
-			dt.w[i] = w[i];
-		dt.Nf = w.size();
-		
+		if (hfile.ExistDataset("wave direction")) {
+			UVector<float> head;
+			hfile.GetDouble("wave direction", head);
+			if (head.IsEmpty())
+				throw Exc("No headings found");
+			dt.head.SetCount(head.size());
+			for (int i = 0; i < head.size(); ++i)
+				dt.head[i] = head[i];
+			dt.Nh = head.size();
+		}
+		if (hfile.ExistDataset("wave frequency")) {
+			UVector<float> w;
+			hfile.GetDouble("wave frequency", w);
+			if (w.IsEmpty())
+				throw Exc("No frequencies found");
+			dt.w.SetCount(w.size());
+			for (int i = 0; i < w.size(); ++i)
+				dt.w[i] = w[i];
+			dt.Nf = w.size();
+		}
 		hfile.UpGroup();
 	}
-	
-	Initialize_AB(dt.A);
-	Initialize_AB(dt.B);
-	Initialize_Forces();
 	
 	for (int ib = 0; ib < dt.Nb; ++ib) {
 		hfile.ChangeGroup(F("Body_Nr_%d", ib+1));
@@ -951,42 +1023,110 @@ void Diffrac::Load_H5() {
 		for (int idof1 = 0; idof1 < 6; ++idof1)
 			for (int idof2 = 0; idof2 < 6*dt.Nb; ++idof2) {
 				String svar = F("A_m") + FormatInt(ib*6 + idof1 + 1) + F("m") + FormatInt(idof2 + 1);
-				hfile.GetDouble(svar, data);
-				for (int ifr = 0; ifr < dt.Nf; ++ifr)
-					dt.A[ib*6 + idof1][idof2](ifr) = data.begin()[ifr];
+				if (hfile.ExistDataset(svar)) {
+					if (!IsLoadedA())
+						Initialize_AB(dt.A);
+					hfile.GetDouble(svar, data);
+					for (int ifr = 0; ifr < dt.Nf; ++ifr)
+						dt.A[ib*6 + idof1][idof2](ifr) = data.begin()[ifr];
+				}
 			}
 		for (int idof1 = 0; idof1 < 6; ++idof1)
 			for (int idof2 = 0; idof2 < 6*dt.Nb; ++idof2) {
 				String svar = F("B_m") + FormatInt(ib*6 + idof1 + 1) + F("m") + FormatInt(idof2 + 1);
-				hfile.GetDouble(svar, data);
-				for (int ifr = 0; ifr < dt.Nf; ++ifr)
-					dt.B[ib*6 + idof1][idof2](ifr) = data.begin()[ifr];
+				if (hfile.ExistDataset(svar)) {
+					if (!IsLoadedB())
+						Initialize_AB(dt.B);
+					hfile.GetDouble(svar, data);
+					for (int ifr = 0; ifr < dt.Nf; ++ifr)
+						dt.B[ib*6 + idof1][idof2](ifr) = data.begin()[ifr];
+				}
 			}		
 		
-		MultiDimMatrixRowMajor<std::complex<float>> F;
+		MultiDimMatrixRowMajor<std::complex<float>> f;
 		for (int idof = 0; idof < 6; ++idof) {
 			String svar = "F_exc_m" + FormatInt(idof+1);
-			hfile.GetComplex(svar, F);
-			for (int ifr = 0; ifr < dt.Nf; ++ifr)
-				for (int ih = 0; ih < dt.Nh; ++ih)
-					dt.ex[ib][ih](ifr, idof) = F(0, 0, 0, ih, ifr);
+			if (hfile.ExistDataset(svar)) {
+				if (!IsLoadedFex())
+					Initialize_Forces(dt.ex);
+				hfile.GetComplex(svar, f);
+				for (int ifr = 0; ifr < dt.Nf; ++ifr)
+					for (int ih = 0; ih < dt.Nh; ++ih)
+						dt.ex[ib][ih](ifr, idof) = f(0, 0, 0, ih, ifr);
+			}
 		}
 		for (int idof = 0; idof < 6; ++idof) {
 			String svar = "F_dif_m" + FormatInt(idof+1);
-			hfile.GetComplex(svar, F);
-			for (int ifr = 0; ifr < dt.Nf; ++ifr)
-				for (int ih = 0; ih < dt.Nh; ++ih)
-					dt.sc[ib][ih](ifr, idof) = F(0, 0, 0, ih, ifr);
+			if (hfile.ExistDataset(svar)) {
+				if (!IsLoadedFsc())
+					Initialize_Forces(dt.sc);
+				hfile.GetComplex(svar, f);
+				for (int ifr = 0; ifr < dt.Nf; ++ifr)
+					for (int ih = 0; ih < dt.Nh; ++ih)
+						dt.sc[ib][ih](ifr, idof) = f(0, 0, 0, ih, ifr);
+			}
 		}
 		for (int idof = 0; idof < 6; ++idof) {
 			String svar = "F_inc_m" + FormatInt(idof+1);
-			hfile.GetComplex(svar, F);
-			for (int ifr = 0; ifr < dt.Nf; ++ifr)
-				for (int ih = 0; ih < dt.Nh; ++ih)
-					dt.fk[ib][ih](ifr, idof) = F(0, 0, 0, ih, ifr);
-		}		
-			
+			if (hfile.ExistDataset(svar)) {
+				if (!IsLoadedFfk())
+					Initialize_Forces(dt.fk);
+				hfile.GetComplex(svar, f);
+				for (int ifr = 0; ifr < dt.Nf; ++ifr)
+					for (int ih = 0; ih < dt.Nh; ++ih)
+						dt.fk[ib][ih](ifr, idof) = f(0, 0, 0, ih, ifr);
+			}
+		}
+		for (int idof = 0; idof < 6; ++idof) {
+			String svar = F("%s Motion", BEM::strDOFtext[idof]);
+			if (hfile.ExistDataset(svar)) {
+				if (!IsLoadedRAO())
+					Initialize_Forces(dt.rao);
+				hfile.GetComplex(svar, f);
+				for (int ifr = 0; ifr < dt.Nf; ++ifr)
+					for (int ih = 0; ih < dt.Nh; ++ih)
+						dt.rao[ib][ih](ifr, idof) = f(0, 0, 0, ih, ifr);
+			}
+		}
+		for (int idof = 0; idof < 6; ++idof) {
+			String svar = "QTF_m" + FormatInt(idof+1);
+			if (hfile.ExistDataset(svar)) {
+				if (!IsLoadedQTF(false))
+					Hydro::Initialize_QTF(dt.qtfdif, dt.Nb, dt.Nh, dt.Nf);
+				hfile.GetComplex(svar, f);
+				for (int ifr1 = 0; ifr1 < dt.Nf; ++ifr1) {
+					for (int ifr2 = 0; ifr2 < dt.Nf; ++ifr2)
+						for (int ih = 0; ih < dt.Nh; ++ih)
+							dt.qtfdif[ib][ih][idof](ifr1, ifr2) = f(0, 0, 0, ih, ifr1, ifr2);			
+				}
+			}
+		}
+		if (hfile.ExistGroup("Metadata")) {
+		 	hfile.ChangeGroup("Metadata");
+			if (hfile.ExistGroup("Particulars")) {
+			 	hfile.ChangeGroup("Particulars");	
+				if (hfile.ExistDataset("COB")) {
+					UVector<float> COB;
+					hfile.GetDouble("COB", COB);
+					dt.msh[ib].dt.cb.Set(COB);
+				}
+				if (hfile.ExistDataset("COG")) {
+					UVector<float> COG;
+					hfile.GetDouble("COG", COG);
+					dt.msh[ib].dt.cg.Set(COG);
+				}				
+				
+				hfile.UpGroup();
+			}
+			hfile.UpGroup();
+		}
 		hfile.UpGroup();
 	}
-			
+	if (IsLoadedQTF(false)) {
+		dt.qtftype = 9;
+		dt.qw = Get_w();
+		dt.qhead.resize(dt.Nh);
+		for (int ih = 0; ih < dt.Nh; ++ih)
+			dt.qhead[ih] = std::complex<double>(dt.head[ih], dt.head[ih]);
+	}
 }

@@ -186,6 +186,8 @@ void FastScatter::OnSaveCompare() {
 		
 	} catch (Exc e) {
 		BEM::PrintError(DeQtfLf(e));
+	} catch (...) {
+		BEM::PrintError(t_("Error at OnSaveCompare()"));
 	}	
 }
 
@@ -266,7 +268,11 @@ void FastScatter::OnCalc() {
 		}
 			
 	} catch (const Exc &e) {
-		BEM::PrintError(e);	
+		String se = e;
+		se.Replace("$", "\\");
+		BEM::PrintError(se);	
+	} catch (...) {
+		BEM::PrintError(t_("Error at OnCalc()"));
 	}
 }
 	
@@ -329,40 +335,53 @@ void FastScatterBase::Init(FastScatter *parent, Function <bool(String)> OnFile, 
 	
 	UpdateButtons(false);
 	
-	leftSearch.array.AutoHideSb().NoHeader().SetLineCy(EditField::GetStdHeight()).MultiSelect();
-	rightSearch.array.AutoHideSb().NoHeader().SetLineCy(EditField::GetStdHeight()).MultiSelect();
+	leftSearch.arrayParams.AutoHideSb().NoHeader().SetLineCy(EditField::GetStdHeight()).MultiSelect();
+	rightSearch.arrayParams.AutoHideSb().NoHeader().SetLineCy(EditField::GetStdHeight()).MultiSelect();
 	
-	leftSearch.array.Tip(t_("Hover mouse to add new parameters to left axis"));
-	rightSearch.array.Tip(t_("Hover mouse to add new parameters to right axis"));
+	leftSearch.arrayParams.WhenBar = [=](Bar& menu){
+		menu.Add(t_("Copy"), [=](){leftSearch.arrayParams.SetClipboard(true, false);})
+			.Help(t_("Copy row"))
+			.Key(K_CTRL_C);
+		leftSearch.arrayParams.StdBar(menu);
+	};
+	rightSearch.arrayParams.WhenBar = [=](Bar& menu){
+		menu.Add(t_("Copy"), [=](){rightSearch.arrayParams.SetClipboard(true, false);})
+			.Help(t_("Copy row"))
+			.Key(K_CTRL_C);
+		rightSearch.arrayParams.StdBar(menu);
+	};
 	
-	leftSearch.array.WhenDropInsert = [&] (int line, PasteClip& d) {OnDropInsert(line, d, leftSearch.array); };
-	leftSearch.array.WhenDrag 		= [&] {OnDrag(leftSearch.array, true);};
+	leftSearch.arrayParams.Tip(t_("Hover mouse to add new parameters to left axis"));
+	rightSearch.arrayParams.Tip(t_("Hover mouse to add new parameters to right axis"));
 	
-	rightSearch.array.WhenDropInsert= [&] (int line, PasteClip& d) {OnDropInsert(line, d, rightSearch.array); };
-	rightSearch.array.WhenDrag 		= [&] {OnDrag(rightSearch.array, true);};
+	leftSearch.arrayParams.WhenDropInsert = [&] (int line, PasteClip& d) {OnDropInsert(line, d, leftSearch.arrayParams); };
+	leftSearch.arrayParams.WhenDrag 		= [&] {OnDrag(leftSearch.arrayParams, true);};
 	
-	leftSearch.array.WhenLeftDouble  = THISBACK1(WhenArrayLeftDouble, &leftSearch.array);
-	leftSearch.array.WhenEnterKey    = THISBACK1(WhenArrayLeftDouble, &leftSearch.array);
-	rightSearch.array.WhenLeftDouble = THISBACK1(WhenArrayLeftDouble, &rightSearch.array);	
-	rightSearch.array.WhenEnterKey   = THISBACK1(WhenArrayLeftDouble, &rightSearch.array);	
+	rightSearch.arrayParams.WhenDropInsert= [&] (int line, PasteClip& d) {OnDropInsert(line, d, rightSearch.arrayParams); };
+	rightSearch.arrayParams.WhenDrag 		= [&] {OnDrag(rightSearch.arrayParams, true);};
 	
-	leftSearch.array.Removing().NoAskRemove().WhenArrayAction = [&] {
-		for(int i = 0; i < leftSearch.array.GetCount(); i++)
-			if (leftSearch.array.IsSelected(i))
+	leftSearch.arrayParams.WhenLeftDouble  = THISBACK1(WhenArrayLeftDouble, &leftSearch.arrayParams);
+	leftSearch.arrayParams.WhenEnterKey    = THISBACK1(WhenArrayLeftDouble, &leftSearch.arrayParams);
+	rightSearch.arrayParams.WhenLeftDouble = THISBACK1(WhenArrayLeftDouble, &rightSearch.arrayParams);	
+	rightSearch.arrayParams.WhenEnterKey   = THISBACK1(WhenArrayLeftDouble, &rightSearch.arrayParams);	
+	
+	leftSearch.arrayParams.Removing().NoAskRemove().WhenArrayAction = [&] {
+		for(int i = 0; i < leftSearch.arrayParams.GetCount(); i++)
+			if (leftSearch.arrayParams.IsSelected(i))
 				return;
 		ShowSelected(false);
 	};
-	rightSearch.array.Removing().NoAskRemove().WhenArrayAction = THISBACK1(ShowSelected, false);
+	rightSearch.arrayParams.Removing().NoAskRemove().WhenArrayAction = THISBACK1(ShowSelected, false);
 	
-	leftSearch.array.AddColumn("");
-	leftSearch.array.NoVertGrid();
-	rightSearch.array.AddColumn("");
-	rightSearch.array.NoVertGrid();
+	leftSearch.arrayParams.AddColumn("");
+	leftSearch.arrayParams.NoVertGrid();
+	rightSearch.arrayParams.AddColumn("");
+	rightSearch.arrayParams.NoVertGrid();
 	rightSearch.label.SetLabel(t_("Right axis"));
 	
-	frameSet.Add(leftSearch.array.GetRectEnter(), 1);
-	frameSet.Add(rightSearch.array.GetRectEnter(), 1);
-	frameSet.Set(leftSearch.array.GetRectEnter());
+	frameSet.Add(leftSearch.arrayParams.GetRectEnter(), 1);
+	frameSet.Add(rightSearch.arrayParams.GetRectEnter(), 1);
+	frameSet.Set(leftSearch.arrayParams.GetRectEnter());
 	
 	rightB.filterParam.WhenAction = THISBACK1(OnFilter, true);
 	rightB.filterParam.Tip(t_("Filters parameters to display. * are allowed"));
@@ -382,8 +401,14 @@ void FastScatterBase::Init(FastScatter *parent, Function <bool(String)> OnFile, 
 	rightB.butSetOnAllTabs 	<<= THISBACK(SelCopyTabs);
 	rightB.butSetOnAllTabs.Tip(t_("Copy selected parameters on the other tabs"));
 	
-	rightUp.arrayParam.WhenDropInsert= [&] (int line, PasteClip& d) {OnDropInsert(line, d, rightUp.arrayParam); };
-	rightUp.arrayParam.WhenDrag 		= [&] {OnDrag(rightUp.arrayParam, false);};
+	rightUp.arrayParam.WhenDropInsert = [&] (int line, PasteClip& d) {OnDropInsert(line, d, rightUp.arrayParam); };
+	rightUp.arrayParam.WhenDrag       = [&] {OnDrag(rightUp.arrayParam, false);};
+	rightUp.arrayParam.WhenBar = [=](Bar& menu){
+		menu.Add(t_("Copy"), [=](){rightUp.arrayParam.SetClipboard(true, false);})
+			.Help(t_("Copy row"))
+			.Key(K_CTRL_C);
+		rightUp.arrayParam.StdBar(menu);
+	};
 	
 	rightB.opZoomToFit <<= true;
 	
@@ -445,8 +470,8 @@ void FastScatterBase::Init(FastScatter *parent, Function <bool(String)> OnFile, 
 
 String FastScatterBase::SelectedStr() {
 	String strLeft;
-	for (int rw = 0; rw < leftSearch.array.GetCount(); ++rw) {
-		String param = Trim(leftSearch.array.Get(rw, 0));
+	for (int rw = 0; rw < leftSearch.arrayParams.GetCount(); ++rw) {
+		String param = Trim(leftSearch.arrayParams.Get(rw, 0));
 		if (!param.IsEmpty()) {
 			if (!strLeft.IsEmpty())
 				strLeft << ",";
@@ -454,8 +479,8 @@ String FastScatterBase::SelectedStr() {
 		}
 	}
 	String strRight;
-	for (int rw = 0; rw < rightSearch.array.GetCount(); ++rw) {
-		String param = Trim(rightSearch.array.Get(rw, 0));
+	for (int rw = 0; rw < rightSearch.arrayParams.GetCount(); ++rw) {
+		String param = Trim(rightSearch.arrayParams.Get(rw, 0));
 		if (!param.IsEmpty()) {
 			if (!strRight.IsEmpty())
 				strRight << ",";
@@ -483,16 +508,16 @@ void FastScatterBase::SelPaste(String str) {
 	UVector<String> params = Split(str, ";");
 	params.SetCount(3);
 	UVector<String> leftp = Split(params[0], ",");
-	leftSearch.array.Clear();
+	leftSearch.arrayParams.Clear();
 	for (int rw = 0; rw < leftp.size(); ++rw) {
 		if (left.dataFast[0].GetParameterX(leftp[rw]) >= 0)
-			leftSearch.array.Set(rw, 0, leftp[rw]);
+			leftSearch.arrayParams.Set(rw, 0, leftp[rw]);
 	}
 	UVector<String> rightp = Split(params[1], ",");
-	rightSearch.array.Clear();
+	rightSearch.arrayParams.Clear();
 	for (int rw = 0; rw < rightp.size(); ++rw) {
 		if (left.dataFast[0].GetParameterX(rightp[rw]) >= 0)
-			rightSearch.array.Set(rw, 0, rightp[rw]);
+			rightSearch.arrayParams.Set(rw, 0, rightp[rw]);
 	}
 	UVector<String> points = Split(params[2], ",");
 	rightDown.arrayPoints.Clear();
@@ -567,7 +592,7 @@ void FastScatterBase::OnDrag(ArrayCtrl &array, bool remove) {
 }
 	
 bool FastScatterBase::AddParameter(String param,  ArrayCtrl *parray) {
-	ArrayCtrl &arr = parray != NULL ? *parray : (leftSearch.array.IsShownFrame() ? leftSearch.array : rightSearch.array);
+	ArrayCtrl &arr = parray != NULL ? *parray : (leftSearch.arrayParams.IsShownFrame() ? leftSearch.arrayParams : rightSearch.arrayParams);
 	for (int rw = 0; rw < arr.GetCount(); ++rw) {
 		if (arr.Get(rw, 0) == param) 
 			return false;
@@ -583,12 +608,12 @@ void FastScatterBase::WhenArrayLeftDouble(ArrayCtrl *parray) {
 	if (id < 0)
 		return;
 	String param = array.Get(id, 0);
-	if (parray == &leftSearch.array) {
+	if (parray == &leftSearch.arrayParams) {
 		array.Remove(id);
-		AddParameter(param, &rightSearch.array);	
-	} else if (parray == &rightSearch.array) {
+		AddParameter(param, &rightSearch.arrayParams);	
+	} else if (parray == &rightSearch.arrayParams) {
 		array.Remove(id);
-		AddParameter(param, &leftSearch.array);	
+		AddParameter(param, &leftSearch.arrayParams);	
 	} else
 		AddParameter(param, nullptr);
 	
@@ -772,6 +797,11 @@ bool FastScatterBase::OnLoad0(String fileName0) {
 		left.EnableX();
 		UpdateButtons(false);
 		return false;
+	} catch (...) {
+		BEM::PrintError(t_("Error at OnLoad0()"));
+		left.EnableX();
+		UpdateButtons(false);
+		return false;
 	}
 	left.EnableX();
 	
@@ -837,6 +867,8 @@ void FastScatterBase::OnSaveAs() {
 		saveFolder = GetFileFolder(fs.Get());
 	} catch (const Exc &e) {
 		BEM::PrintError(DeQtf(e));	
+	} catch (...) {
+		BEM::PrintError(t_("Error at OnSaveAs"));	
 	}		
 }
 	
@@ -892,7 +924,7 @@ void FastScatterBase::ShowSelected(bool zoomtofit) {
 				scat.SetLeftMargin(8*StdFont().GetHeight());
 				scat.SetTopMargin(StdFont().GetHeight());
 				scat.SetBottomMargin(4*StdFont().GetHeight());
-				bool rightEmpty = rightSearch.array.GetCount() == 0;
+				bool rightEmpty = rightSearch.arrayParams.GetCount() == 0;
 				if (!rightEmpty)
 					scat.SetRightMargin(8*StdFont().GetHeight());
 				else
@@ -994,8 +1026,8 @@ void FastScatterBase::ShowSelected(bool zoomtofit) {
 					throw Exc(t_("Incorrect start or end times"));
 				
 				UVector<int> idsx, idsy, idsFixed;
-				for (int rw = 0; rw < leftSearch.array.GetCount(); ++rw) {
-					String param = Trim(leftSearch.array.Get(rw, 0));
+				for (int rw = 0; rw < leftSearch.arrayParams.GetCount(); ++rw) {
+					String param = Trim(leftSearch.arrayParams.Get(rw, 0));
 					if (!param.IsEmpty()) {
 						int col = fast.GetParameterX(param);
 						if (col < 0)
@@ -1008,8 +1040,8 @@ void FastScatterBase::ShowSelected(bool zoomtofit) {
 						}
 					}
 				}
-				for (int rw = 0; rw < rightSearch.array.GetCount(); ++rw) {
-					String param = Trim(rightSearch.array.Get(rw, 0));
+				for (int rw = 0; rw < rightSearch.arrayParams.GetCount(); ++rw) {
+					String param = Trim(rightSearch.arrayParams.Get(rw, 0));
 					if (!param.IsEmpty()) {
 						int col = fast.GetParameterX(param);
 						if (col < 0)
@@ -1036,7 +1068,9 @@ void FastScatterBase::ShowSelected(bool zoomtofit) {
 		SaveParams();
 	} catch (const Exc &e) {
 		BEM::PrintError(DeQtf(e));	
-	}
+	} catch (...) {
+		BEM::PrintError(t_("Error at ShowSelected"));	
+	}		
 }
 
 void FastScatterTabs::Init(String appDataFolder, StatusBar &_statusBar) {
@@ -1324,7 +1358,7 @@ void FastScatterBase::LoadParams() {
 	if (!LoadFromJsonFile(params, fileName))
 		return;
 	
-	params.Set(*this, leftSearch.array, rightSearch.array);
+	params.Set(*this, leftSearch.arrayParams, rightSearch.arrayParams);
 }
 
 void FastScatterBase::SaveParams() {
@@ -1338,6 +1372,6 @@ void FastScatterBase::SaveParams() {
 	String fileName = AFX(folder, strpath + "_" + strname + ".json");
 
 	Params params;
-	params.Get(leftSearch.array, rightSearch.array);
+	params.Get(leftSearch.arrayParams, rightSearch.arrayParams);
 	StoreAsJsonFile(params, fileName, true);
 }

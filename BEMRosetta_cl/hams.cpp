@@ -402,10 +402,7 @@ bool Hams::LoadHydrostatic(String fileName, int ib) {
 }
 
 void Hams::SaveCase(String folderBase, bool bin, int numCases, int numThreads, bool x0z, bool y0z, 
-					const UVector<Point3D> &listPoints, bool ismrel, bool irregular, bool autoIrregular, int qtfType) const {
-	if (qtfType > 0)
-		throw Exc(t_("Solver HAMS does not obtain QTF"));
-		
+					const UVector<Point3D> &listPoints, bool ismrel, bool irregular, bool autoIrregular) const {
 	SaveFolder0(folderBase, bin, 1, true, numThreads,  x0z, y0z, listPoints, ismrel, irregular, autoIrregular);
 	if (numCases > 1)
 		SaveFolder0(folderBase, bin, numCases, false, numThreads, x0z, y0z, listPoints, ismrel, irregular, autoIrregular);

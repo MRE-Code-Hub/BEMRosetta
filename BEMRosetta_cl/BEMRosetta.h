@@ -56,8 +56,8 @@ public:
 	    WAMIT_GDF, WAMIT_GDF2, WAMIT_CSF, WAMIT_CSF2, WAMIT_DAT, NEMOH_DAT, NEMOHFS_DAT, NEMOH_PRE,
 	    AQWA_DAT, AQWA_LIS, HAMS_PNL, STL_BIN, STL_TXT,
 	    EDIT, MSH_TDYN, DIODORE_DAT, HYDROSTAR_HST, ORCA_OWR,
-	    MIKE21_GRD, CAPY_NC, OBJ, ORCAFLEX_YML, OPENFAST_FST,
-	    GEOMVIEW_OFF, BEM_MESH, MOORING_MESH, VTK_ASCII, UNKNOWN, NUMMESH
+	    MIKE21_GRD, CAPY_NC, OBJ, ORCAFLEX_YML, ORCAWAVE_YML, OPENFAST_FST,
+	    GEOMVIEW_OFF, BEM_MESH, MOORING_MESH, VTK_ASCII, VTK_ASCII_4, UNKNOWN, NUMMESH
 	};
 	
 	struct MeshInfo {
@@ -131,6 +131,7 @@ public:
 	void Move(const float *pos, double rho, double g, bool setnewzero);
 		
 	void Translate(double dx, double dy, double dz);
+	void Translate(const Value3D &p) 						{Translate(p.x, p.y, p.z);}
 	void Rotate(double a_x, double a_y, double a_z, double c_x, double c_y, double c_z);
 	bool TranslateArchimede(double rho, double tolerance, double &dz);
 	bool TranslateArchimede(double rho, double tolerance, double &dz, Point3D &cb, double &allvol);
@@ -324,6 +325,7 @@ public:
 	    bool caseCanSave;
 	    bool irregular;
 	    bool autoIrregular;
+	    const char* md;
 	    const char* qtf;
 	    bool autoCS;
 	    bool multibody;
@@ -381,6 +383,7 @@ public:
 		case BEMROSETTA_H5: return t_("BMR.h5");
 		case DIODORE:		return t_("DIO");
 		case ORCAFLEX_YML:	return t_("ORCF.yml");
+		case ORCAWAVE_YML:	return t_("ORCW.yml");
 		case CSV_MAT:		return t_("CSVm");
 		case CSV_TABLE:		return t_("CSVt");
 		case BEMIO_H5:		return t_("BMh5");
@@ -389,7 +392,6 @@ public:
 		case HAMS_MREL:		return t_("HAMS_M");
 		case CAPYTAINE:		return t_("Capy");
 		case CAPY_NC:		return t_("Capy.nc");
-		case ORCAWAVE_YML:	return t_("ORCW.yml");
 		case CAPYTAINE_PY:	return t_("Capy.py");
 		case AKSELOS_NPZ:	return t_("Aks.npz");
 		case HYDROSTAR:		return t_("Hyd");
@@ -1402,6 +1404,7 @@ class WamitBody : public Body {
 public:
 	static String LoadDat(UArray<Body> &mesh, String fileName);
 	static String LoadGdf(UArray<Body> &mesh, String fileName, bool &y0z, bool &x0z, double &g);
+	static String Load_fdf(UArray<Body> &_mesh, String fileName);
 	static String LoadPot(UArray<Body> &mesh, String fileName, bool &y0z, bool &x0z, double &g);
 	static void SaveGdf(String fileName, const Surface &surf, double g, bool y0z, bool x0z, bool iscsf);
 	void SaveHST(String fileName, double rho, double g) const; 
@@ -1555,7 +1558,7 @@ public:
 	
 	int Load_ControlFile(String fileName, bool &ismrel);
 	void SaveCase(String folder, bool bin, int numCases, int numThreads, bool x0z, bool y0z, 
-				const UVector<Point3D> &listPoints, bool ismrel, bool irregular, bool autoIrregular, int qtfType) const;
+				const UVector<Point3D> &listPoints, bool ismrel, bool irregular, bool autoIrregular) const;
 	UVector<String> Check() const;
 	
 	bool LoadHydrostatic(String fileName, int ib);
@@ -1612,7 +1615,7 @@ public:
 	void SaveDatBody(String file); 
 	
 	void SaveCase(String folder, bool bin, int numCases, BEM_FMT solver, int numThreads, bool x0z, const UVector<bool> &listDOF, bool irregular, bool autoIrregular, int qtfType) const;
-	void SaveCase_Capy(String folder, int numThreads, bool withPotentials, bool withMesh, bool x0z, bool y0z, bool irregular, bool autoIrregular, int qtfType) const;
+	void SaveCase_Capy(String folder, int numThreads, bool withPotentials, bool withMesh, bool x0z, bool y0z, bool irregular, bool autoIrregular) const;
 	
 	void Save_Cal(String folder, const UVector<double> &freqs, /*const UVector<int> &nodes, const UVector<int> &panels, */int solver, 
 					bool x0z, const UVector<bool> &listDOF, int qtfType) const;
@@ -1723,7 +1726,8 @@ public:
 	virtual ~OrcaWave() noexcept {}	
 	
 private:
-	void Load_OF_YML();
+	bool Load_OF_YML();
+	bool Load_OW_YML();
 #ifdef PLATFORM_WIN32
 	void Load_OWR();
 #endif
@@ -1733,7 +1737,7 @@ class OrcaFactors {
 public:
 	double mass = 1, len = 1, force = 1;
 	
-	Matrix<double, 6, 6> A, K, B, M;
+	Matrix<double, 6, 6> A, K, B, M, C, Dlin;
 	Eigen::Vector<double, 6> F, RAO, MD;
 	
 	void Update() {
@@ -1743,6 +1747,8 @@ public:
 				B(r, c) = B_(r, c);
 				K(r, c) = K_(r, c);
 				M(r, c) = M_(r, c);
+				C(r, c) = C_(r, c);
+				Dlin(r, c) = Dlin_(r, c);
 			}
 			F(r) = F_(r);
 			RAO(r) = RAO_(r);
@@ -1784,6 +1790,24 @@ private:
 			return mass*len*len;
 		else
 			return mass*len;
+	}
+	double C_(int r, int c) const {
+		if (r < 3 && c < 3)
+			return force/len;
+		if (r < 3)
+			return force;
+		if (c < 3)
+			return force;
+		return force*len;
+	}
+	double Dlin_(int r, int c) const {
+		if (r < 3 && c < 3)
+			return force/len;
+		if (r < 3)
+			return force;
+		if (c < 3)
+			return force;
+		return force*len;
 	}
 	double F_(int r) const {
 		if (r < 3) 
@@ -2275,7 +2299,7 @@ public:
 	struct Connection : Moveable<Connection> {
 		String name;
 		String where;
-		double x, y, z;
+		Point3D p;
 		void Jsonize(JsonIO &json);
 	};
 	UVector<Connection> connections;	

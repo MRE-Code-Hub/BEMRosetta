@@ -147,7 +147,7 @@ String GetPythonDeclaration(const String &name, const String &prefix, const Stri
 			} else if (ctp.Find("**") > 0) {
         		if (!returns.IsEmpty())
         			 returns << ", ";
-        		returns << var;
+        		returns << var << ".copy()";
         		nextIsIntp = true;
         		prevct = ct;
 			} else if (ctp.Find("*") > 0 && ct.Find("const") < 0) {

@@ -1085,6 +1085,7 @@ private:
 	bool OnLoad();
 	bool OnSave();
 	void OnCursor();
+	void OnName(int id);
 	void arrayOnCursor();
 	void arrayClear();
 	void arrayOnAdd();

@@ -40,7 +40,7 @@ void MainMoor_LineProperties::Init(Mooring &mooring) {
 		Point3D pfrom = Null;
 		for (const Mooring::Connection &c : mooring.connections)
 			if (c.name == sfrom) {
-				pfrom = Point3D(c.x, c.y, c.z);
+				pfrom = clone(c.p);
 				break;
 			}
 		if (IsNull(pfrom))
@@ -49,7 +49,7 @@ void MainMoor_LineProperties::Init(Mooring &mooring) {
 		Point3D pto = Null;
 		for (const Mooring::Connection &c : mooring.connections)
 			if (c.name == sto) {
-				pto = Point3D(c.x, c.y, c.z);
+				pto = clone(c.p);
 				break;
 			}
 		if (IsNull(pto))
@@ -104,9 +104,9 @@ bool MainMoor_LineProperties::ArrayUpdateCursor() {
 
 	const Mooring::Connection *pfrom = mooring.GetConnectionP(~dropFrom);
 	if (pfrom) {
-		array.Set(id, col++, pfrom->x);
-		array.Set(id, col++, pfrom->y);
-		array.Set(id, col++, pfrom->z);
+		array.Set(id, col++, pfrom->p.x);
+		array.Set(id, col++, pfrom->p.y);
+		array.Set(id, col++, pfrom->p.z);
 	} else {
 		array.Set(id, col++, "-");
 		array.Set(id, col++, "-");
@@ -114,9 +114,9 @@ bool MainMoor_LineProperties::ArrayUpdateCursor() {
 	}
 	const Mooring::Connection *pto = mooring.GetConnectionP(~dropTo);
 	if (pto) {
-		array.Set(id, col++, pto->x);
-		array.Set(id, col++, pto->y);
-		array.Set(id, col++, pto->z);
+		array.Set(id, col++, pto->p.x);
+		array.Set(id, col++, pto->p.y);
+		array.Set(id, col++, pto->p.z);
 	} else {
 		array.Set(id, col++, "-");
 		array.Set(id, col++, "-");
@@ -168,16 +168,16 @@ void MainMoor_LineProperties::Load() {
 		String fx, fy, fz, tx, ty, tz;
 		const Mooring::Connection *pfrom = mooring.GetConnectionP(val.from);
 		if (pfrom) {
-			fx = FormatDouble(pfrom->x);
-			fy = FormatDouble(pfrom->y);
-			fz = FormatDouble(pfrom->z);
+			fx = FormatDouble(pfrom->p.x);
+			fy = FormatDouble(pfrom->p.y);
+			fz = FormatDouble(pfrom->p.z);
 		} else
 			fx = fy = fz = "-";
 		const Mooring::Connection *pto = mooring.GetConnectionP(val.to);
 		if (pto) {
-			tx = FormatDouble(pto->x);
-			ty = FormatDouble(pto->y);
-			tz = FormatDouble(pto->z);
+			tx = FormatDouble(pto->p.x);
+			ty = FormatDouble(pto->p.y);
+			tz = FormatDouble(pto->p.z);
 		} else
 			tx = ty = tz = "-";	
 		array.Add(val.name, val.nameType, val.from, val.to, val.length, val.numseg, fx, fy, fz, tx, ty, tz);

@@ -336,6 +336,9 @@ public:
 	
 	static void __stdcall EnumerateVarsProc(const TVarInfo *lpVarInfo);
 	
+	String GetErrorString(); 
+	void throwError(String where, String errorString = Null);
+	
 	enum OrcaAvailable {AVAILABLE = 1, NOT_AVAILABLE = -1, NOT_INSTALLED = -2};
 	int IsAvailable() {
 		if (!dll && !InitNewest())
@@ -549,7 +552,7 @@ public:
 				UVector<String> vnames, fullNames, units;
 				GetFlexSimVariables(objHandles[i], objTypes[i], objNames[i], IDs, vnames, fullNames, units);
 				for (const String &n : vnames)
-					ret << F("%s|%s", objNames[i], n);
+					ret << F("%s/%s", objNames[i], n);
 			}
 		}
 		return ret;
@@ -623,9 +626,9 @@ public:
 	}
 	
 	void GetFlexSimVar(String name, const Point3D &centre, String &unit, int &objType, VectorXd &data) {
-		UVector<String> sp = Split(name, "|");
+		UVector<String> sp = Split(name, "\\");
 		if (sp.size() < 2 || sp.size() > 4)
-			throwError(F("GetFlexSimVar incorrect varName %s", name));
+			throwError(F("GetFlexSimVar incorrect variable Name %s", name));
 		
 		String object = sp[0];
 		String var = sp[1];
@@ -864,8 +867,8 @@ public:
 			
 		UVector<String> parameters = clone(_parameters);
 		UArray<Point3D> centres = clone(_centres);
-		if (parameters[0] != "General|Time") {
-			parameters.Insert(0, "General|Time");
+		if (parameters[0] != "General\\Time") {
+			parameters.Insert(0, "General\\Time");
 			centres.Insert(0, Point3D(0, 0, 0));
 		}
 		
@@ -890,7 +893,16 @@ public:
 		for (int i = 0; i < parameters.size(); ++i) {
 			if (i > 0)
 				out << sep;
-			out << parameters[i] << " [" << units[i] << "]";
+			String p = parameters[i];
+			p.Replace("(", "_");
+			p.Replace(")", "_");
+			p.Replace(";", "_");
+			p.Replace(" ", "_");
+			p.Replace("-", "m");
+			p.Replace(".", "p");
+			while (p.EndsWith("_"))
+				p.Remove(p.GetCount()-1, 1);
+			out << p << " [" << units[i] << "]";
 		}
 		out << "\n";
 		for (int idtime = 0; idtime < datas[0].size(); ++idtime) {
@@ -920,7 +932,6 @@ public:
 	void SetNumTries(int num)		{numTries = num;}
 		
 	String GetDLLPath() const		{return dllFile;}	
-	static Function<bool(String, int, const Time &, int64)> WhenWave;
 	static Function<bool(String)> WhenPrint;
 	static Time startCalc, lastLog, beginNoLicense;
 	static int64 noLicenseTime;
@@ -993,13 +1004,9 @@ private:
 			throwError("Load dotHydrostaticResults 2");
 		
 		hy.dt.msh.SetCount(hy.dt.Nb);
-		for (int ib = 0; ib < hy.dt.Nb; ++ib) 
-			hy.dt.msh[ib].dt.C.resize(6, 6);
-		
-		for (int ib = 0; ib < hy.dt.Nb; ++ib) 
-			hy.dt.msh[ib].dt.M.resize(6, 6);
-		
 		for (int ib = 0; ib < hy.dt.Nb; ++ib) {
+			hy.dt.msh[ib].dt.C.resize(6, 6);
+			hy.dt.msh[ib].dt.M.resize(6, 6);
 			const T &b = bodies[ib];
 			
 			hy.dt.msh[ib].dt.Vo = b.Volume*factor.len*factor.len*factor.len;
@@ -1060,23 +1067,6 @@ private:
 	int (*GetLastErrorString)(LPCWSTR wcs) = nullptr;
 	
 	void (*FinaliseLibrary)(int *status) = nullptr;
-	
-	String GetErrorString() {
-		if (!GetLastErrorString)
-			return "";
-		int len = GetLastErrorString(NULL);
-		Buffer<wchar_t> rw(len);
-		LPWSTR wcs = (LPWSTR)rw.begin();
-		GetLastErrorString(wcs);
-		return WideToString(wcs, len);
-	}
-	
-	void throwError(String where, String errorString = Null) {
-		String str = errorString;
-		if (errorString == "")
-			str = GetErrorString();
-		throw Exc(F("'%s': %s\n(BEMRosetta %s. Orca %s. File %s)", where, str, BEMRVersion(), DLLVersion(), FileVersion()));
-	}
 #endif
 };
 #ifdef PLATFORM_WIN32

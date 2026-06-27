@@ -453,10 +453,7 @@ String CapyNC_Load(const char *file, UArray<Hydro> &hydros, int &num) {
 }
 
 void Nemoh::SaveCase_Capy(String folder, int numThreads, bool withPotentials, bool withMesh, bool x0z, bool y0z,  
-				bool irregular, bool autoIrregular, int qtfType) const {
-	if (qtfType > 0)
-		throw Exc(t_("Solver Capytaine does not obtain QTF"));
-					
+				bool irregular, bool autoIrregular) const {
 	DirectoryCreate(folder);
 	String name = "capytaine_case";
 	String fileBat  = AFX(folder, "capytaine.bat");

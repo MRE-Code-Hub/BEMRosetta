@@ -1704,10 +1704,10 @@ String FastOut::Load_LIS(String file) {
 
 void Aqwa::SaveCaseDat(String folder, int numThreads, bool withPotentials, bool x0z, bool y0z, 
 		bool irregular, bool autoIrregular, int qtfType) const {
-	if (irregular && !autoIrregular)
-		throw Exc(t_("AQWA irregular frequencies removal through user supplied lid is not supported. Try with automatic mesh generation"));
+	//if (irregular && !autoIrregular)
+	//	throw Exc(t_("AQWA irregular frequencies removal through user supplied lid is not supported. Try with automatic mesh generation"));
 	
-	if (qtfType == 7 || qtfType == 8)
+	if (qtfType%7 == 7 || qtfType%7 == 8)
 		throw Exc(t_("AQWA only supports pressure integration QTF calculation"));
 				
 	if (!DirectoryCreateX(folder))
@@ -1715,10 +1715,35 @@ void Aqwa::SaveCaseDat(String folder, int numThreads, bool withPotentials, bool 
 	
 	String file = AFX(folder, "Analysis.dat");	
 	
+	UArray<Body> msh = clone(dt.msh);
+	if (irregular && !autoIrregular) {
+		for (int ib = 0; ib < dt.msh.size(); ++ib) {
+			msh[ib] = clone(dt.msh[ib]);
+			msh[ib].dt.mesh = clone(msh[ib].dt.under);
+			bool isLid = dt.lids.size() > ib && !dt.lids[ib].dt.mesh.panels.IsEmpty();
+			if (isLid) {
+				Surface lid = clone(dt.lids[ib].dt.mesh);
+				if (x0z) {			// Assures that even with symmetry, no triangle is in the lid
+					Surface nlid;			
+					nlid.CutY(lid);
+					nlid.DeployYSymmetry();
+					lid = pick(nlid);				
+				}
+				if (y0z) {			// Assures that even with symmetry, no triangle is in the lid
+					Surface nlid;			
+					nlid.CutX(lid);
+					nlid.DeployXSymmetry();
+					lid = pick(nlid);				
+				} 
+				msh[ib].Append(lid, dt.rho, dt.g);
+			}
+		}
+	}
+	
 	int nNodes, nPanels;
 	UVector<String> files;
 	files << file;
-	Body::SaveAs(dt.msh, files, Body::AQWA_DAT, Body::UNDERWATER, Bem().rho, Bem().g, y0z, x0z, nNodes, nPanels,
+	Body::SaveAs(msh, files, Body::AQWA_DAT, Body::ALL, Bem().rho, Bem().g, y0z, x0z, nNodes, nPanels,
 		dt.w, dt.head, irregular, autoIrregular, qtfType, withPotentials, dt.h, numThreads);
 	
 	String fileBat = AFX(folder, "Aqwa.bat");		

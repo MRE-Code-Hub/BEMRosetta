@@ -542,8 +542,10 @@ void Hydro::LoadCase(String fileName, Function <bool(String, int)> Status) {
 		ret = static_cast<BemioH5&>(*this).Load(fileName, Status);
 	else if (F(".out.1.2.3.3sc.3fk.hst.4.6p.7.8.9.12d.12s.cfg.frc.pot.mmx.wam").Find(ext) >= 0)
 		ret = static_cast<Wamit&>(*this).Load(fileName, false, 0, Status);
-	else if (ext == ".xml")
+	else if (ext == ".h5m")
 		ret = static_cast<Diffrac&>(*this).Load(fileName);
+	else if (ext == ".xml")
+		ret = static_cast<Diffrac&>(*this).LoadCase(fileName);
 	else
 		ret = t_("Unknown BEM input format");
 	
@@ -565,13 +567,13 @@ void Hydro::SaveCase(String folder, BEM_FMT solver, bool x0z, bool y0z,
 	if (autoIrregular && !irregular)
 		throw Exc(t_("The option to get automatic lid generation for irregular frequencies removal has to be activated only if the irregular frequencies removal option is activated"));
 	
-	if (autoQTF && (qtfType != 7))
+	if (autoQTF && (qtfType%10 != 7))
 		throw Exc(t_("The option to get automatic control surface has to be activated only for control surface QTF calculation"));
 	
-	if (qtfType == 8 && dt.Nb > 1)
+	if (qtfType%10 == 8 && dt.Nb > 1)
 		throw Exc(t_("The near field method cannot be used with a multibody case"));
 
-	if (!autoQTF && qtfType == 7) {
+	if (!autoQTF && qtfType%10 == 7) {
 		for (int ib = 0; ib < dt.Nb; ++ib) 
 			if (dt.css.size() <= ib)
 				throw Exc(F(t_("Control surface not found for body %d"), ib+1));
@@ -609,11 +611,11 @@ void Hydro::SaveCase(String folder, BEM_FMT solver, bool x0z, bool y0z,
 		if (solver == Hydro::CAPYTAINE || solver == Hydro::NEMOH || solver == Hydro::NEMOHv115 || solver == Hydro::NEMOHv3 || solver == Hydro::SEAFEM_NEMOH)
 			static_cast<const Nemoh &>(*this).SaveCase(folder, bin, numCases, solver, numThreads,x0z, listDOF, irregular, autoIrregular, qtfType);
 		else if (solver == Hydro::CAPYTAINE_PY)
-			static_cast<const Nemoh &>(*this).SaveCase_Capy(folder, numThreads, withPotentials, withMesh, x0z, y0z, irregular, autoIrregular, qtfType);
+			static_cast<const Nemoh &>(*this).SaveCase_Capy(folder, numThreads, withPotentials, withMesh, x0z, y0z, irregular, autoIrregular);
 		else if (solver == Hydro::HAMS)
-			static_cast<const Hams &>(*this).SaveCase(folder, bin, numCases, numThreads, x0z, y0z, listPoints, false, irregular, autoIrregular, qtfType);
+			static_cast<const Hams &>(*this).SaveCase(folder, bin, numCases, numThreads, x0z, y0z, listPoints, false, irregular, autoIrregular);
 		else if (solver == Hydro::HAMS_MREL)
-			static_cast<const Hams &>(*this).SaveCase(folder, bin, numCases, numThreads, x0z, y0z, listPoints, true, irregular, autoIrregular, qtfType);
+			static_cast<const Hams &>(*this).SaveCase(folder, bin, numCases, numThreads, x0z, y0z, listPoints, true, irregular, autoIrregular);
 		else if (solver == Hydro::ORCAWAVE_YML)
 			static_cast<const OrcaWave &>(*this).SaveCase_OW_YML(folder, bin, numThreads, withPotentials, withMesh, x0z, y0z, irregular, autoIrregular, qtfType, autoQTF);
 		else if (solver == Hydro::AQWA_DAT)
@@ -774,8 +776,11 @@ UVector<String> Hydro::Check(BEM_FMT type, bool irregular, bool autoIrregular, i
 
 	if (!Hydro::bemInfo[type].autoIrregular && autoIrregular)
 		ret << F(t_("Solver cannot generate itself the irregular frequencies removal lid"));
-		
-	if (qtfType > 0 && F(Hydro::bemInfo[type].qtf).Find(FormatInt(qtfType)) < 0)
+	
+	if (qtfType > 10 && F(Hydro::bemInfo[type].md).Find(FormatInt(qtfType-10)) < 0)
+		ret << F(t_("Solver does not support QTF calculation type"));
+			
+	if (qtfType%10 > 0 && F(Hydro::bemInfo[type].qtf).Find(FormatInt(qtfType%10)) < 0)
 		ret << F(t_("Solver does not support QTF calculation type"));
 
 	if (!Hydro::bemInfo[type].autoCS && autoCS)
@@ -2353,11 +2358,35 @@ void Hydro::Mix(UArray<Hydro> &hydros, const UVector<int> &cases, const UVector<
 		if (hy.dt.qhead.size() == 0)
 			hy.dt.qhead = clone(dt.qhead);
 		else if (!CompareDelta(hy.dt.qhead, dt.qhead, 0.01))
-			throw Exc(F(t_("QTF wave headings from case %d does not match with previous values"), icase));		
+			throw Exc(F(t_("QTF wave headings from case %d does not match with previous values"), icase));	
+	}
+	for (int i = 0; i < cases.size(); ++i) {
+		if (!IsNull(cases[i])) {
+			int ib = i/Hydro::P_NUM;
+			Set(hy.dt.msh[ib].dt.c0, hydros[cases[i]].dt.msh[bodies[i]].dt.c0, cases[i], "c0");
+			Set(hy.dt.msh[ib].dt.cg, hydros[cases[i]].dt.msh[bodies[i]].dt.cg, cases[i], "cg");
+		}
 	}
     
+    UVector<int> caseA, bodiesA;
+    bool includeA = false;
+    for (int i = Hydro::P_A; i < cases.size(); i += Hydro::P_NUM) {
+        caseA << cases[i];
+        bodiesA << bodies[i];
+        if (!IsNull(cases[i]))
+            includeA = true;
+    }
+    if (includeA) {
+    	hy.Initialize_AB(hy.dt.A, 0);	
+    	for (int ifr = 0; ifr < hy.dt.Nf; ++ifr)
+	    	for (int ib1 = 0; ib1 < hy.dt.Nb; ++ib1)
+	    		for (int ib2 = 0; ib2 < hy.dt.Nb; ++ib2) {
+	    			
+	    			
+	    		}
+    }
 
-
+// [6*Nb][6*Nb][Nf]
 }
 
 void Hydro::SwapDOF(int ib1, int ib2) {

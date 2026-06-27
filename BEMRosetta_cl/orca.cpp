@@ -184,7 +184,31 @@ int Orca::GetDiffractionOutput(THHANDLE handle, int OutputType, int *lpOutputSiz
 	return lpStatus;
 }
 
+static String StringDuration(int64 duration) {
+    if (duration < 60)
+        return F("%d s", int(duration));
+	else if (duration < 3600) {
+        int minutes = duration / 60;
+        int seconds = duration % 60;
+        return F("%d:%02d m", minutes, seconds);
+    } else if (duration < 86400) {
+        int hours = duration / 3600;
+        int minutes = (duration % 3600) / 60;
+        return F("%d:%02d h", hours, minutes);
+    } else {
+	    int days = duration / 86400;
+	    int hours = (duration % 86400) / 3600;
+	    int minutes = (duration % 3600) / 60;
+	
+	    if (hours == 0 && minutes == 0)
+	        return F("%d d", days);
+	    else
+	        return F("%d d %d:%02d h", days, hours, minutes);
+    }
+}
+
 void __stdcall Orca::DiffractionHandlerProc(THHANDLE handle, LPCWSTR lpProgress, BOOL *lpCancel) {
+	Time tm = GetSysTime();
 	static int lastPerc = -1;
 	String msg = WideToString(lpProgress);
 	int perc = -1;
@@ -202,14 +226,20 @@ void __stdcall Orca::DiffractionHandlerProc(THHANDLE handle, LPCWSTR lpProgress,
 	Time et;
 	int64 duration;
 	if (perc == 0) {
-		et = Null;
-		duration = Null;
+		*lpCancel = WhenPrint("Completed  0%");
+		return;
 	} else {
-		int64 sec = GetSysTime() - startCalc - noLicenseTime;
-		int64 duration = int64(100*sec/double(perc));
+		int64 sec = tm - startCalc - noLicenseTime;
+		duration = int64(100*sec/double(perc));
 		et = startCalc + duration;
 	}
-	*lpCancel = WhenWave(msg, perc, et, duration);
+	String send;
+	if (Date(et) == Date(tm))
+		send = F("%2d:%02d:%02d", et.hour, et.minute, et.second);
+	else
+		send = F("%", et);	
+	
+	*lpCancel = WhenPrint(F("Completed %2d%%. Estim. End: %s", perc, send) + F(". Estim. Duration: %s", StringDuration(duration))); 
 }
 
 void __stdcall Orca::StaticsHandlerProc(THHANDLE handle, LPCWSTR lpProgress, BOOL *lpCancel) {
@@ -241,17 +271,28 @@ void __stdcall Orca::LicenceNotFoundHandler(int action, BOOL *lpAttemptReconnect
 
 void __stdcall Orca::SimulationHandlerProc(THHANDLE handle, double simulationTime, double simulationStart, double simulationStop, BOOL *lpCancel) {
 	Time tm = GetSysTime();
-	if (IsNull(startCalc))		// Time starts here. Statics calculation delay is discarded
+	if (IsNull(startCalc)) {		// Time starts here. Statics calculation delay is discarded
 		startCalc = tm;
-	else if (tm - lastLog < deltaLogSimulation)
 		return;
+	} else if (tm - lastLog < deltaLogSimulation)
+		return;
+	
 	lastLog = tm;
+	
 	double elapsed  = simulationTime - simulationStart,
 		   total    = simulationStop - simulationStart;
-	int64  elapsedT = tm - startCalc - noLicenseTime,
-		   pending  = int64(elapsedT*(total/elapsed - 1));		// elapsedT*total/elapsed - elapsedT
-	*lpCancel = WhenPrint(F("Elap/Total:%.1f/%.0f ET:%s Clk/Sim:%.1f", elapsed, total,
-										   					  SecondsToString(double(pending), 0, false, false, true, false, true), elapsedT/elapsed));
+
+	int64  sec = tm - startCalc - noLicenseTime,
+		   duration  = int64(sec*(total/elapsed));		// sec*total/elapsed - sec
+
+	Time et = startCalc + duration;		
+	String send;
+	if (Date(et) == Date(tm))
+		send = F("%2d:%02d:%02d", et.hour, et.minute, et.second);
+	else
+		send = F("%", et);					   					  	
+
+	*lpCancel = WhenPrint(F("Completed %2d%%. Estim. End: %s", 100.*elapsed/total, send) + F(". Estim. Duration: %s. Clk/Sim: %.1f", StringDuration(duration), sec/elapsed)); 
 }
 
 void __stdcall Orca::EnumerateObjectsProc(THHANDLE handle, const TObjectInfo *info) {
@@ -433,7 +474,7 @@ bool Orca::InitVersion(String version) {
 		BEM::Print(str);
 	}
 	dllVersion = GetVersionString(orcadata[iversion].version);
-	BEM::Print(F("\nBEMRosetta OrcaWave version: %s", BEMRVersion()));
+	BEM::Print(F("\nBEMRosetta OrcaFlex version: %s", BEMRVersion()));
 	
 	String arch;
 #ifdef CPU_64
@@ -908,6 +949,23 @@ void Orca::LoadParameters(Hydro &hy, const Point3D &c0) {
 			}
 		}
 	}	
+}
+
+String Orca::GetErrorString() {
+	if (!GetLastErrorString)
+		return "";
+	int len = GetLastErrorString(NULL);
+	Buffer<wchar_t> rw(len);
+	LPWSTR wcs = (LPWSTR)rw.begin();
+	GetLastErrorString(wcs);
+	return WideToString(wcs, len);
+}
+
+void Orca::throwError(String where, String errorString) {
+	String str = errorString;
+	if (errorString == "")
+		str = GetErrorString();
+	throw Exc(F("'%s': %s\n(BEMRosetta %s. Orca %s. File %s)", where, str, BEMRVersion(), DLLVersion(), FileVersion()));
 }
 	
 #endif

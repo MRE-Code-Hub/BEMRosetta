@@ -407,13 +407,13 @@ String AQWABody::LoadDat(UArray<Body> &mesh, Hydro &hy, String fileName) {
 
 void AQWABody::SaveDat(String fileName, const UArray<Body> &mesh, const UArray<Surface> &surfs, double rho, double g, bool y0z, bool x0z,
 			const UVector<double> &w, const UVector<double> &head, bool irregular, bool autoIrregular, int qtfType, bool getPotentials, double h, int numThreads) {
-	if (qtfType == 7 || qtfType == 8)
+	if (qtfType%7 == 7 || qtfType%7 == 8)
 		throw Exc(t_("AQWA only supports pressure integration QTF calculation"));
 
 	bool qtf = qtfType > 0;
 
-	if (irregular && !autoIrregular)
-		throw Exc(t_("AQWA irregular frequencies removal through user supplied lid is not supported. Try with automatic mesh generation"));
+	//if (irregular && !autoIrregular)
+	//	throw Exc(t_("AQWA irregular frequencies removal through user supplied lid is not supported. Try with automatic mesh generation"));
 	
 	FileOut ret(fileName);
 	if (!ret.IsOpen())
@@ -511,7 +511,16 @@ void AQWABody::SaveDat(String fileName, const UArray<Body> &mesh, const UArray<S
 		}
 		return true;
 	};
-	
+	auto IsLid = [](const Surface &surf, int ip) {
+		const Panel &p = surf.panels[ip];
+		for (int id = 0; id < 4; ++id) {
+			int pid = p.id[id];
+			if (surf.nodes[pid].z > EPS_LEN || surf.nodes[pid].z < -EPS_LEN)
+				return false;
+		}
+		return true;
+	};
+		
 	int ipall = 1;
 	
 	for (int ib = 0; ib < surfs.size(); ++ib) {
@@ -530,19 +539,29 @@ void AQWABody::SaveDat(String fileName, const UArray<Body> &mesh, const UArray<S
 			<< "      ZLWL          (        0.)" << "\n";	// Free surface height is zero
 		if (autoIrregular)
 			ret << F("%6d%s   %d\n", ib+1, "ILID AUTO", 60+ib);		// Irregular frequencies removal
+		else if (irregular)
+			ret << F("%6d%s   %d\n", ib+1, "ILID     ", 60+ib);		// Irregular frequencies removal
 		
 		const Surface &surf = surfs[ib];
 		
 		for (int ip = 0; ip < surf.panels.size(); ++ip) {
 			const Panel &p = surf.panels[ip];
 			
-			String diff = IsDry(surf, ip) ? "    " : "DIFF";
+			String diff;
+			int group;
+			if (irregular && !autoIrregular && IsLid(surf, ip)) {
+				group = 60;
+				diff = "DIFF";
+			} else {
+				group = 14;
+				diff = IsDry(surf, ip) ? "    " : "DIFF";
+			}
 			
 			if (p.IsTriangle())
-				ret << F("%6d%s %s%5d(1)(%5d)(%5d)(%5d)  WB Elem Id:%5d Aqwa Elem No:%5d\n", ib+1, "TPPL", diff, 14+ib, 
+				ret << F("%6d%s %s%5d(1)(%5d)(%5d)(%5d)  WB Elem Id:%5d Aqwa Elem No:%5d\n", ib+1, "TPPL", diff, group+ib, 
 							p.id[0]+1+firstidbody[ib], p.id[1]+1+firstidbody[ib], p.id[2]+1+firstidbody[ib], ipall, ip+1);
 			else
-				ret << F("%6d%s %s%5d(1)(%5d)(%5d)(%5d)(%5d)  WB Elem Id:%5d Aqwa Elem No:%5d\n", ib+1, "QPPL", diff, 14+ib, 
+				ret << F("%6d%s %s%5d(1)(%5d)(%5d)(%5d)(%5d)  WB Elem Id:%5d Aqwa Elem No:%5d\n", ib+1, "QPPL", diff, group+ib, 
 							p.id[0]+1+firstidbody[ib], p.id[1]+1+firstidbody[ib], p.id[2]+1+firstidbody[ib], p.id[3]+1+firstidbody[ib], ipall, ip+1);
 		     
 			ipall++;
@@ -575,9 +594,9 @@ void AQWABody::SaveDat(String fileName, const UArray<Body> &mesh, const UArray<S
 	for (int ib = 0; ib < mesh.size(); ++ib) {
 		if (mesh[ib].dt.M.size() != 36)
 			throw Exc(F(t_("Body %d inertia matrix is not correct"), ib+1));
-		double m33 = mesh[ib].dt.M(3, 3);
-		double m44 = mesh[ib].dt.M(4, 4);
-		double m55 = mesh[ib].dt.M(5, 5);
+		double m33 = Nvl(mesh[ib].dt.M(3, 3), 0.);
+		double m44 = Nvl(mesh[ib].dt.M(4, 4), 0.);
+		double m55 = Nvl(mesh[ib].dt.M(5, 5), 0.);
 		if (m33 == 0)
 			m33 = 0.0001;
 		if (m44 == 0)
@@ -587,8 +606,8 @@ void AQWABody::SaveDat(String fileName, const UArray<Body> &mesh, const UArray<S
 		if (ib > 0)
 			ret << "\n";
 		ret << F("%6d%s     %5d %s %s %s %s %s %s", ib+1, "PMAS", 98000+ib, 
-			FDS(m33, 9, true), FDS(mesh[ib].dt.M(3, 4), 9, true), FDS(mesh[ib].dt.M(3, 5), 9, true),
-			FDS(m44, 9, true), FDS(mesh[ib].dt.M(4, 5), 9, true), FDS(m55, 9, true));
+			FDS(m33, 9, true), FDS(Nvl(mesh[ib].dt.M(3, 4), 0.), 9, true), FDS(Nvl(mesh[ib].dt.M(3, 5), 0.), 9, true),
+			FDS(m44, 9, true), FDS(Nvl(mesh[ib].dt.M(4, 5), 0.), 9, true), FDS(m55, 9, true));
 	}
 	ret	<< "\n END\n";
 	
@@ -655,7 +674,7 @@ void AQWABody::SaveDat(String fileName, const UArray<Body> &mesh, const UArray<S
 				for (int idf0 = 0; idf0 < 6; ++idf0) {
 					ret << F("      SSTF%5d%5d", ib+1, idf0+1);
 					for (int idf1 = 0; idf1 < 6; ++idf1) 
-						ret << FDS(K(idf0, idf1), 10, true);
+						ret << FDS(Nvl(K(idf0, idf1), 0.), 10, true);
 					ret << "\n";
 				}
 			}
@@ -665,7 +684,7 @@ void AQWABody::SaveDat(String fileName, const UArray<Body> &mesh, const UArray<S
 				for (int idf0 = 0; idf0 < 6; ++idf0) {
 					ret << F("      FIDP     %5d", idf0+1);
 					for (int idf1 = 0; idf1 < 6; ++idf1) 
-						ret << FDS(mesh[ib].dt.Dlin(idf0, idf1), 10, true);
+						ret << FDS(Nvl(mesh[ib].dt.Dlin(idf0, idf1), 0.), 10, true);
 					ret << "\n";
 				}
 			}

@@ -105,6 +105,8 @@ extern "C" {
 	L_EXPORT void BMR_Bem_rho_Set(double rho) noexcept;
 	// Sets the range of frequencies
 	L_EXPORT void BMR_Bem_w_Set(const double *w, int dim) noexcept;
+	// Gets the range of frequencies
+	L_EXPORT void BMR_Bem_w_Get(double **data, int dim[1]) noexcept;
 	// Sets the range of headings
 	L_EXPORT void BMR_Bem_headings_Set(const double *head, int dim) noexcept;
 	// Copies a Bem case into other
