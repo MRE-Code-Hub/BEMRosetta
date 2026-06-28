@@ -26,32 +26,37 @@ const UVector<Hydro::BEMInfo> Hydro::bemInfo = {
     {WAMIT_1_3_RAD,   "Wamit .1.3 ω(rad/s)",      true,   "*.1",     false, false, false, "", 	 "",   false, true},
     {CSV_MAT,         ".csv mat",                 true,   "*.csv",   false, false, false, "", 	 "",   false, false},
     {CSV_TABLE,       ".csv table",               true,   "*.csv",   false, false, false, "", 	 "",   false, false},
+    
     {BEMIO_H5,        "BEMIO .h5",                true,   "*.h5",    false, false, false, "", 	 "",   false, true},
     {MATLAB,          "Matlab .mat",              true,   "*.mat",   false, false, false, "", 	 "",   false, false},
     {FAST_WAMIT,      "FAST .dat.1.2.3...",       true,   "*.1",     false, false, false, "", 	 "",   false, true},
     {HAMS_WAMIT,      "HAMS Wamit",               false,  "",        true,  true,  false, "", 	 "",   false, true},
     {HAMS,            "HAMS",                     false,  "",        true,  true,  false, "", 	 "",   false, false},
+    
     {HAMS_MREL,       "HAMS MREL",                false,  "",        true,  true,  false, "", 	 "",   false, true},
     {WADAM_WAMIT,     "Wadam Wamit",              false,  "",        false, false, false, "", 	 "",   false, true},
     {NEMOH,           "Nemoh v2",                 false,  "",        true,  false, false, "", 	 "",   false, false},
     {NEMOHv115,       "Nemoh v115",               false,  "",        true,  false, false, "", 	 "",   false, false},
     {NEMOHv3,         "Nemoh v3",                 false,  "",        true,  true,  false, "79",  "79", false, false},
+    
     {SEAFEM_NEMOH,    "SeaFEM Nemoh",             false,  "",        false, false, false, "", 	 "",   false, false},
     {AQWA,            "AQWA .lis .ah1 .qtf",      false,  "",        false, false, false, "", 	 "",   false, true},
     {AQWA_QTF,        "AQWA .qtf",                true,   "*.qtf",   false, false, false, "", 	 "",   false, true},
     {AQWA_DAT,        "AQWA .dat",                false,  ".dat",    true,  true,  true,  "9", 	 "9",  false, true},
     {FOAMM,           "FOAMM",                    false,  "",        false, false, false, "", 	 "",   false, false},
+    
     {DIODORE,         "Diodore .hdb",             false,  "*.hdb",   false, false, false, "", 	 "",   false, true},
     {ORCAFLEX_YML,    "OrcaFlex .yml",            false,  "*.yml",   false, false, false, "", 	 "",   false, true},
     {CAPYTAINE,       "Capytaine .cal",           false,  "",        false, false, false, "", 	 "",   false, true},
     {HYDROSTAR_OUT,   ".out",                     false,  "*.out",   false, false, false, "", 	 "",   false, true},
     {CAPY_NC,         "Capytaine .nc",            false,  "*.nc",    false, false, false, "", 	 "",   false, true},
+    
     {ORCAWAVE_YML,    "OrcaWave .yml",            false,  "*.yml",   true,  true,  true,  "789", "79", true , true},
-    {ORCAFLEX_YML,    "OrcaFlex .yml",            false,  "*.yml",   true,  true,  true,  "789", "79", true , true},
     {CAPYTAINE_PY,    "Capytaine .py",            false,  "*.py",    true,  true,  true,  "", 	 "",   false, true},
     {BEMROSETTA_H5,   "BEMRosetta .h5",           false,  "*.h5",    false, false, false, "", 	 "",   false, true},
     {AKSELOS_NPZ,     "Akselos .npz",             false,  "*.npz",   false, false, false, "", 	 "",   false, false},
     {HYDROSTAR,       "HydroStar .hsg",           false,  "*.npz",   true,  true,  true,  "79",  "79", true,  true},
+    
     {DIFFRAC,         "Diffrac .xml",             false,  "*.xml", 	 true,  true,  false, "9",   "9",  false, true},
     {DIFFRAC_H5,      "Diffrac .h5m",             false,  "*.h5m", 	 false, false, false, "",    "",   false, false},
 #ifdef PLATFORM_WIN32	
